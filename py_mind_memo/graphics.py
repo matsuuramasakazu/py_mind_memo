@@ -1,0 +1,471 @@
+import tkinter as tk
+import tkinter.font as tkfont
+from typing import Dict, Optional
+from .models import Node
+
+class GraphicsEngine:
+    """tkinter.Canvas上での描画を管理するクラス"""
+    def __init__(self, canvas: tk.Canvas):
+        self.canvas = canvas
+        self.node_items: Dict[str, list] = {}  # node_id -> list of item ids
+        self.text_items: Dict[str, int] = {} 
+        self.line_items: Dict[str, list] = {} 
+        
+        # 定数
+        self.BEZIER_STEPS = 15
+        self.TAPERED_BEZIER_STEPS = 30
+        
+        # デザイン設定
+        self.text_color = "#333333"
+        self.root_outline = "#222222"
+        self.font = ("Yu Gothic", 10)
+        self.root_font = ("Yu Gothic", 12, "bold")
+        
+        self.branch_colors = [
+            "#FF9D48", # Orange
+            "#FF6B6B", # Red
+            "#A06EE1", # Purple
+            "#4ECDC4", # Teal
+            "#5CACE2", # Blue
+            "#96CEB4", # Green
+        ]
+
+    def _get_node_color(self, node: Node):
+        """ノードの系統色を取得（ルートの子ノードに基づき決定）"""
+        if node.parent is None:
+            return self.root_outline
+        
+        # ルートの何番目の子孫か
+        curr = node
+        while curr.parent and curr.parent.parent:
+            curr = curr.parent
+        
+        if curr.parent is None: return self.root_outline
+        
+        try:
+            idx = curr.parent.children.index(curr)
+            return self.branch_colors[idx % len(self.branch_colors)]
+        except ValueError:
+            return self.branch_colors[0]
+
+    def _create_rounded_rect(self, x1, y1, x2, y2, radius=10, **kwargs):
+        points = [x1+radius, y1, x1+radius, y1, x2-radius, y1, x2-radius, y1, x2, y1, x2, y1+radius, x2, y1+radius, x2, y2-radius, x2, y2-radius, x2, y2, x2-radius, y2, x2-radius, y2, x1+radius, y2, x1+radius, y2, x1, y2, x1, y2-radius, x1, y2-radius, x1, y1+radius, x1, y1+radius, x1, y1]
+        return self.canvas.create_polygon(points, **kwargs, smooth=True)
+
+    def _parse_markup(self, text: str):
+        """
+        マークアップを解析してセグメントのリストを返す。
+        セグメントは (text, font_style, underline, color) のリスト。
+        """
+        import re
+        # タグの分割用正規表現
+        pattern = re.compile(r'(<br/?>|<b>|</b>|<i>|</i>|<u>|</u>|<c:#[0-9a-fA-F]{6}>|</c>)')
+        parts = pattern.split(text)
+        
+        segments = []
+        current_bold = False
+        current_italic = False
+        current_underline = False
+        current_color = self.text_color
+        
+        color_stack = []
+        
+        for part in parts:
+            if not part: continue
+            
+            if part == "<b>": current_bold = True
+            elif part == "</b>": current_bold = False
+            elif part == "<i>": current_italic = True
+            elif part == "</i>": current_italic = False
+            elif part == "<u>": current_underline = True
+            elif part == "</u>": current_underline = False
+            elif part.startswith("<c:"):
+                color_stack.append(current_color)
+                current_color = part[3:-1]
+            elif part == "</c>":
+                if color_stack: current_color = color_stack.pop()
+                else: current_color = self.text_color
+            elif part in ("<br>", "<br/>"):
+                segments.append(("\n", "normal", False, current_color))
+            else:
+                # テキスト部分
+                style = []
+                if current_bold: style.append("bold")
+                if current_italic: style.append("italic")
+                font_style = " ".join(style) if style else "normal"
+                segments.append((part, font_style, current_underline, current_color))
+        
+        return segments
+
+    def _wrap_rich_text(self, text: str, base_font, max_width: int):
+        """
+        リッチテキストを指定された幅で折り返す。
+        戻り値は行のリスト。各行はセグメント (text, font_style, underline, color) のリスト。
+        """
+        paragraphs = text.split("\n")
+        all_wrapped_lines = []
+        
+        family = base_font[0]
+        size = base_font[1]
+        
+        # フォントオブジェクトのキャッシュ（パフォーマンス向上用）
+        font_cache = {}
+
+        def get_font(style):
+            if style not in font_cache:
+                font_tuple = (family, size, style) if style != "normal" else (family, size)
+                font_cache[style] = tkfont.Font(family=family, size=size, weight="bold" if "bold" in style else "normal", slant="italic" if "italic" in style else "roman")
+            return font_cache[style]
+
+        for p in paragraphs:
+            segments = self._parse_markup(p)
+            if not segments:
+                all_wrapped_lines.append([])
+                continue
+                
+            current_line_segments = []
+            current_line_width = 0
+            
+            for txt, style, underline, color in segments:
+                font_obj = get_font(style)
+                
+                # 文字単位で分割（日本語対応のため）
+                # より高度にするなら単語単位が良いが、まずは確実な文字単位
+                pending_txt = ""
+                for char in txt:
+                    char_w = font_obj.measure(char)
+                    if current_line_width + char_w > max_width and current_line_segments or (current_line_width + char_w > max_width and pending_txt):
+                        # 現在の行を確定
+                        if pending_txt:
+                            current_line_segments.append((pending_txt, style, underline, color))
+                        all_wrapped_lines.append(current_line_segments)
+                        current_line_segments = []
+                        current_line_width = 0
+                        pending_txt = ""
+                    
+                    pending_txt += char
+                    current_line_width += char_w
+                
+                if pending_txt:
+                    current_line_segments.append((pending_txt, style, underline, color))
+            
+            if current_line_segments:
+                all_wrapped_lines.append(current_line_segments)
+            elif not p: # 空行の場合
+                all_wrapped_lines.append([])
+
+        return all_wrapped_lines
+
+    def get_text_size(self, text: str, base_font, max_width: int = 250):
+        """マルチラインとマークアップ、自動折り返しを考慮したサイズ計算"""
+        wrapped_lines = self._wrap_rich_text(text, base_font, max_width)
+        
+        max_w = 0
+        total_h = 0
+        
+        family = base_font[0]
+        size = base_font[1]
+        
+        for line_segments in wrapped_lines:
+            line_w = 0
+            line_max_h = 0
+            
+            if not line_segments:
+                total_h += size + 10
+                continue
+
+            for txt, style, underline, color in line_segments:
+                font = (family, size, style) if style != "normal" else (family, size)
+                # 高さと幅の計算
+                temp_id = self.canvas.create_text(0, 0, text=txt, font=font)
+                bbox = self.canvas.bbox(temp_id)
+                self.canvas.delete(temp_id)
+                if bbox:
+                    line_w += (bbox[2] - bbox[0])
+                    line_max_h = max(line_max_h, bbox[3] - bbox[1])
+            
+            max_w = max(max_w, line_w)
+            total_h += (line_max_h if line_max_h > 0 else size + 10)
+            
+        return max(100, max_w + 20), max(35, total_h + 12)
+
+    def _draw_rich_text(self, x, y, text, base_font, tags):
+        """リッチテキストを自動折り返しを考慮して描画する"""
+        wrapped_lines = self._wrap_rich_text(text, base_font, 250)
+        family = base_font[0]
+        size = base_font[1]
+        
+        # 全体の高さを計算して開始Y座標を調整
+        w, h = self.get_text_size(text, base_font)
+        curr_y = y - h/2 + 10
+        
+        item_ids = []
+        
+        for line_segments in wrapped_lines:
+            # 行の幅を計算して中央寄せの開始Xを決定
+            line_w = 0
+            temp_items = []
+            
+            if not line_segments:
+                curr_y += size + 10
+                continue
+
+            for txt, style, underline, color in line_segments:
+                font = (family, size, style) if style != "normal" else (family, size)
+                tid = self.canvas.create_text(0, 0, text=txt, font=font)
+                bbox = self.canvas.bbox(tid)
+                self.canvas.delete(tid)
+                if bbox:
+                    line_w += (bbox[2] - bbox[0])
+                    temp_items.append((txt, font, underline, color, bbox[2]-bbox[0], bbox[3]-bbox[1]))
+            
+            curr_x = x - line_w / 2
+            max_line_h = 0
+            
+            for txt, font, underline, color, seg_w, seg_h in temp_items:
+                # テキスト描画
+                tid = self.canvas.create_text(
+                    curr_x + seg_w/2, curr_y + seg_h/2,
+                    text=txt, font=font, fill=color, tags=tags, anchor="center"
+                )
+                item_ids.append(tid)
+                
+                if underline:
+                    # アンダーライン描画
+                    lx1 = curr_x
+                    lx2 = curr_x + seg_w
+                    ly = curr_y + seg_h - 2
+                    uid = self.canvas.create_line(lx1, ly, lx2, ly, fill=color, width=1, tags=tags)
+                    item_ids.append(uid)
+                
+                curr_x += seg_w
+                max_line_h = max(max_line_h, seg_h)
+            
+            curr_y += (max_line_h if max_line_h > 0 else size + 10)
+            
+        return item_ids
+
+    def _calculate_bezier_points(self, p0, p1, p2, p3, steps):
+        """ベジェ曲線の点列を計算する"""
+        points = []
+        def bz(t, v0, v1, v2, v3):
+            return (1-t)**3 * v0 + 3*(1-t)**2 * t * v1 + 3*(1-t) * t**2 * v2 + t**3 * v3
+        
+        for i in range(steps + 1):
+            t = i / steps
+            x = bz(t, p0[0], p1[0], p2[0], p3[0])
+            y = bz(t, p0[1], p1[1], p2[1], p3[1])
+            points.append((x, y))
+        return points
+
+    def draw_node(self, node: Node, is_selected: bool = False):
+        x, y = node.x, node.y
+        is_root = node.parent is None
+        font = self.root_font if is_root else self.font
+        
+        node.width, node.height = self.get_text_size(node.text, font)
+        w, h = node.width, node.height
+        
+        if node.id in self.node_items:
+            for item in self.node_items[node.id]: self.canvas.delete(item)
+        if node.id in self.text_items:
+            self.canvas.delete(self.text_items[node.id])
+        
+        items = []
+        color = self._get_node_color(node)
+        
+        # 選択状態の強調表示（背面に配置）
+        if is_selected:
+            # 淡いブルーのハイライトボックス
+            p_h = 4
+            highlight_id = self._create_rounded_rect(
+                x - w/2 - 10, y - h/2 - p_h, x + w/2 + 10, y + h/2 + p_h,
+                radius=6, fill="#E3F2FD", outline="#2196F3", width=1, tags=("node", node.id)
+            )
+            items.append(highlight_id)
+
+        if is_root:
+            # ルートノード：太い枠線の角丸長方形
+            outline_w = 4 if is_selected else 3
+            fill_color = "#E3F2FD" if is_selected else "white"
+            rect_id = self._create_rounded_rect(
+                x - w/2 - 12, y - h/2 - 10, x + w/2 + 12, y + h/2 + 10,
+                radius=10, fill=fill_color, outline=color, width=outline_w, tags=("node", node.id)
+            )
+            items.append(rect_id)
+        else:
+            # サブトピック：下線のみ
+            line_y = y + h/2
+            lx1, lx2 = x - w/2 - 5, x + w/2 + 5
+            u_width = 3 if is_selected else 2
+            underline_id = self.canvas.create_line(
+                lx1, line_y, lx2, line_y, fill=color, width=u_width, tags=("node", node.id)
+            )
+            items.append(underline_id)
+
+        self.node_items[node.id] = items
+        
+        # テキスト（リッチテキスト対応）
+        text_item_ids = self._draw_rich_text(
+            x, y, node.text, font, tags=("text", node.id)
+        )
+        self.text_items[node.id] = text_item_ids[0] if text_item_ids else None
+        # 全てのアイテムを管理可能にするために node_items に追加
+        self.node_items[node.id].extend(text_item_ids)
+        
+        if node.children and node.parent:
+            self._draw_collapse_icon(node)
+        
+        if node.parent:
+            self.draw_connection(node)
+
+    def _get_connection_points(self, node: Node, parent: Node):
+        """接続の開始点、制御点、終了点を計算する"""
+        if parent.parent is None:
+            return self._get_root_connection_points(node, parent)
+        else:
+            return self._get_subtree_connection_points(node, parent)
+
+    def _get_root_connection_points(self, node: Node, parent: Node):
+        """ルートからの接続点を計算"""
+        side_siblings = [c for c in parent.children if c.direction == node.direction]
+        try:
+            side_idx = side_siblings.index(node) % 3
+        except ValueError:
+            side_idx = 0
+        
+        w_h = parent.width / 2 + 12
+        h_h = parent.height / 2 + 10
+        
+        if node.direction != 'left':
+            if side_idx == 0: px, py = parent.x + w_h, parent.y - h_h
+            elif side_idx == 1: px, py = parent.x + w_h, parent.y + h_h
+            else: px, py = parent.x + w_h, parent.y
+        else:
+            if side_idx == 0: px, py = parent.x - w_h, parent.y - h_h
+            elif side_idx == 1: px, py = parent.x - w_h, parent.y + h_h
+            else: px, py = parent.x - w_h, parent.y
+            
+        nx = node.x - node.width/2 if node.x > parent.x else node.x + node.width/2
+        ny = node.y + node.height/2
+        
+        dx = nx - px
+        cp1x, cp2x = px + dx * 0.4, px + dx * 0.6
+        cp1y = cp2y = ny if abs(ny - py) > 1 else py
+        
+        return (px, py), (cp1x, cp1y), (cp2x, cp2y), (nx, ny), True # is_tapered
+
+    def _get_subtree_connection_points(self, node: Node, parent: Node):
+        """子トピック間の接続点を計算"""
+        parent_dir = 'right' if node.x > parent.x else 'left'
+        px = parent.x + parent.width/2 if parent_dir == 'right' else parent.x - parent.width/2
+        py = parent.y + parent.height/2
+        nx = node.x - node.width/2 if parent_dir == 'right' else node.x + node.width/2
+        ny = node.y + node.height/2
+        
+        dx = nx - px
+        cp1x, cp2x = px + dx * 0.4, px + dx * 0.6
+        cp1y, cp2y = py, ny
+        
+        return (px, py), (cp1x, cp1y), (cp2x, cp2y), (nx, ny), False # not_tapered
+
+    def draw_connection(self, node: Node):
+        if not node.parent or node.parent.collapsed: return
+        if node.id in self.line_items:
+            for item in self.line_items[node.id]: self.canvas.delete(item)
+        
+        color = self._get_node_color(node)
+        p1, cp1, cp2, p2, is_tapered = self._get_connection_points(node, node.parent)
+        
+        if is_tapered:
+            items = self._draw_tapered_bezier(p1[0], p1[1], p2[0], p2[1], color, 8, 2)
+        else:
+            items = self._draw_bezier(p1[0], p1[1], cp1[0], cp1[1], cp2[0], cp2[1], p2[0], p2[1], color, 2)
+        
+        self.line_items[node.id] = items
+
+    def draw_move_shadow_connection(self, parent_node: Node, shadow_node: Node):
+        """移動先の影用の接続線を描画する"""
+        color = "#cccccc"
+        p1, cp1, cp2, p2, is_tapered = self._get_connection_points(shadow_node, parent_node)
+        
+        steps = 20
+        points = self._calculate_bezier_points(p1, cp1, cp2, p2, steps)
+        
+        for i in range(len(points) - 1):
+            t = i / steps
+            width = (8 + (2 - 8) * t) if is_tapered else 2
+            self.canvas.create_line(
+                points[i][0], points[i][1], points[i+1][0], points[i+1][1],
+                fill=color, width=width, capstyle="round", tags="move_shadow"
+            )
+
+    def _draw_bezier(self, x1, y1, cp1x, cp1y, cp2x, cp2y, x2, y2, color, width, tags=None):
+        steps = self.BEZIER_STEPS
+        points = self._calculate_bezier_points((x1, y1), (cp1x, cp1y), (cp2x, cp2y), (x2, y2), steps)
+        items = []
+        for i in range(len(points) - 1):
+            line_id = self.canvas.create_line(
+                points[i][0], points[i][1], points[i+1][0], points[i+1][1],
+                fill=color, width=width, capstyle="round", tags=tags
+            )
+            items.append(line_id)
+        return items
+
+    def _draw_tapered_bezier(self, x1, y1, x2, y2, color, start_w, end_w, tags=None):
+        steps = self.TAPERED_BEZIER_STEPS
+        dx = x2 - x1
+        cp1x, cp2x = x1 + dx * 0.4, x1 + dx * 0.6
+        cp1y = cp2y = y2 if abs(y2 - y1) > 1 else y1
+        
+        points = self._calculate_bezier_points((x1, y1), (cp1x, cp1y), (cp2x, cp2y), (x2, y2), steps)
+        items = []
+        for i in range(len(points) - 1):
+            t = i / steps
+            w = start_w + (end_w - start_w) * t
+            line_id = self.canvas.create_line(
+                points[i][0], points[i][1], points[i+1][0], points[i+1][1],
+                fill=color, width=w, capstyle="round", tags=tags
+            )
+            items.append(line_id)
+        return items
+
+    def _draw_collapse_icon(self, node: Node):
+        """折り畳み/展開用のアイコンを描画する"""
+        # 実際には方向(direction)に基づいた方が正確
+        if node.direction == 'left':
+            x = node.x - node.width/2 - 10
+        else:
+            x = node.x + node.width/2 + 10
+            
+        y = node.y + node.height/2
+        radius = 8
+        
+        color = self._get_node_color(node)
+        
+        # アイコンの円
+        circle_id = self.canvas.create_oval(
+            x - radius, y - radius, x + radius, y + radius,
+            fill="white", outline=color, width=1, tags=("collapse_icon", node.id)
+        )
+        self.node_items[node.id].append(circle_id)
+        
+        if node.collapsed:
+            # 折りたたみ中：子ノードの数を表示
+            count = len(node.children)
+            text_id = self.canvas.create_text(
+                x, y, text=str(count), font=("Yu Gothic", 7), fill=color, tags=("collapse_icon", node.id)
+            )
+            self.node_items[node.id].append(text_id)
+        else:
+            # 展開中：マイナス記号を表示
+            line_id = self.canvas.create_line(
+                x - 4, y, x + 4, y, fill=color, width=1, tags=("collapse_icon", node.id)
+            )
+            self.node_items[node.id].append(line_id)
+
+    def clear(self):
+        self.canvas.delete("all")
+        self.node_items.clear()
+        self.text_items.clear()
+        self.line_items.clear()
