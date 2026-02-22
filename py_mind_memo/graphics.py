@@ -10,6 +10,8 @@ class GraphicsEngine:
         self.node_items: Dict[str, list] = {}  # node_id -> list of item ids
         self.text_items: Dict[str, int] = {} 
         self.line_items: Dict[str, list] = {} 
+        self.image_items: Dict[str, int] = {}
+        self.image_cache: Dict[str, tk.PhotoImage] = {}  # GC防止用のキャッシュ
         
         # 定数
         self.BEZIER_STEPS = 15
@@ -156,12 +158,30 @@ class GraphicsEngine:
 
         return all_wrapped_lines
 
-    def get_text_size(self, text: str, base_font, max_width: int = 250):
-        """マルチラインとマークアップ、自動折り返しを考慮したサイズ計算"""
-        wrapped_lines = self._wrap_rich_text(text, base_font, max_width)
+    def get_text_size(self, node: Node, base_font, max_width: int = 250):
+        """マルチラインとマークアップ、自動折り返しを考慮したサイズ計算（画像分も含む）"""
+        wrapped_lines = self._wrap_rich_text(node.text, base_font, max_width)
         
         max_w = 0
         total_h = 0
+        
+        # 画像のサイズを取得
+        img_w = 0
+        img_h = 0
+        if node.image_data:
+            if node.id in self.image_cache:
+                photo = self.image_cache[node.id]
+            else:
+                import base64
+                try:
+                    photo = tk.PhotoImage(data=base64.b64decode(node.image_data))
+                    self.image_cache[node.id] = photo
+                except Exception:
+                    photo = None
+            
+            if photo:
+                img_w = photo.width()
+                img_h = photo.height() + 10 # 10px spacing
         
         family = base_font[0]
         size = base_font[1]
@@ -187,17 +207,28 @@ class GraphicsEngine:
             max_w = max(max_w, line_w)
             total_h += (line_max_h if line_max_h > 0 else size + 10)
             
-        return max(100, max_w + 20), max(35, total_h + 12)
+        return max(100, max(max_w + 20, img_w + 20)), max(35, total_h + 12 + img_h)
 
-    def _draw_rich_text(self, x, y, text, base_font, tags):
-        """リッチテキストを自動折り返しを考慮して描画する"""
-        wrapped_lines = self._wrap_rich_text(text, base_font, 250)
+    def _draw_rich_text(self, x, y, node, base_font, tags):
+        """リッチテキストを自動折り返しを考慮して描画する（画像対応）"""
+        wrapped_lines = self._wrap_rich_text(node.text, base_font, 250)
         family = base_font[0]
         size = base_font[1]
         
         # 全体の高さを計算して開始Y座標を調整
-        w, h = self.get_text_size(text, base_font)
-        curr_y = y - h/2 + 10
+        w, h = self.get_text_size(node, base_font)
+        
+        # 画像がある場合は先に描画
+        img_h_offset = 0
+        if node.image_data and node.id in self.image_cache:
+            photo = self.image_cache[node.id]
+            img_h = photo.height()
+            # 画像をテキストの上に描画
+            img_id = self.canvas.create_image(x, y - h/2 + 10 + img_h/2, image=photo, tags=tags)
+            self.image_items[node.id] = img_id
+            img_h_offset = img_h + 10
+
+        curr_y = y - h/2 + 10 + img_h_offset
         
         item_ids = []
         
@@ -263,13 +294,17 @@ class GraphicsEngine:
         is_root = node.parent is None
         font = self.root_font if is_root else self.font
         
-        node.width, node.height = self.get_text_size(node.text, font)
+        node.width, node.height = self.get_text_size(node, font)
         w, h = node.width, node.height
         
         if node.id in self.node_items:
             for item in self.node_items[node.id]: self.canvas.delete(item)
         if node.id in self.text_items:
-            self.canvas.delete(self.text_items[node.id])
+            # 既に削除済み（node_itemsに含まれているため）
+            pass
+        if node.id in self.image_items:
+            self.canvas.delete(self.image_items[node.id])
+            del self.image_items[node.id]
         
         items = []
         color = self._get_node_color(node)
@@ -307,7 +342,7 @@ class GraphicsEngine:
         
         # テキスト（リッチテキスト対応）
         text_item_ids = self._draw_rich_text(
-            x, y, node.text, font, tags=("text", node.id)
+            x, y, node, font, tags=("text", node.id)
         )
         self.text_items[node.id] = text_item_ids[0] if text_item_ids else None
         # 全てのアイテムを管理可能にするために node_items に追加

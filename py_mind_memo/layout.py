@@ -12,7 +12,7 @@ class LayoutEngine:
     def calculate_subtree_height(self, node: Node, graphics):
         """そのノードを含むサブツリー全体の必要高さを計算・更新する"""
         font = graphics.root_font if node.parent is None else graphics.font
-        node.width, node.height = graphics.get_text_size(node.text, font)
+        node.width, node.height = graphics.get_text_size(node, font)
         
         if not node.children or node.collapsed:
             node.subtree_height = node.height
