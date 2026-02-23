@@ -1,7 +1,14 @@
 import tkinter as tk
 import tkinter.font as tkfont
+import base64
 from typing import Dict, Optional
 from .models import Node
+from .constants import (
+    COLOR_TEXT, COLOR_ROOT_OUTLINE, COLOR_ROOT_FILL,
+    COLOR_HIGHLIGHT_FILL, COLOR_HIGHLIGHT_OUTLINE,
+    FONT_FAMILY, FONT_SIZE_NORMAL, FONT_SIZE_ROOT,
+    BRANCH_COLORS, IMAGE_SPACING
+)
 
 class GraphicsEngine:
     """tkinter.Canvas上での描画を管理するクラス"""
@@ -18,19 +25,12 @@ class GraphicsEngine:
         self.TAPERED_BEZIER_STEPS = 30
         
         # デザイン設定
-        self.text_color = "#333333"
-        self.root_outline = "#222222"
-        self.font = ("Yu Gothic", 10)
-        self.root_font = ("Yu Gothic", 12, "bold")
+        self.text_color = COLOR_TEXT
+        self.root_outline = COLOR_ROOT_OUTLINE
+        self.font = (FONT_FAMILY, FONT_SIZE_NORMAL)
+        self.root_font = (FONT_FAMILY, FONT_SIZE_ROOT, "bold")
         
-        self.branch_colors = [
-            "#FF9D48", # Orange
-            "#FF6B6B", # Red
-            "#A06EE1", # Purple
-            "#4ECDC4", # Teal
-            "#5CACE2", # Blue
-            "#96CEB4", # Green
-        ]
+        self.branch_colors = BRANCH_COLORS
 
     def _get_node_color(self, node: Node):
         """ノードの系統色を取得（ルートの子ノードに基づき決定）"""
@@ -172,7 +172,6 @@ class GraphicsEngine:
             if node.id in self.image_cache:
                 photo = self.image_cache[node.id]
             else:
-                import base64
                 try:
                     photo = tk.PhotoImage(data=base64.b64decode(node.image_data))
                     self.image_cache[node.id] = photo
@@ -181,7 +180,7 @@ class GraphicsEngine:
             
             if photo:
                 img_w = photo.width()
-                img_h = photo.height() + 10 # 10px spacing
+                img_h = photo.height() + IMAGE_SPACING # spacing
         
         family = base_font[0]
         size = base_font[1]
@@ -226,7 +225,7 @@ class GraphicsEngine:
             # 画像をテキストの上に描画
             img_id = self.canvas.create_image(x, y - h/2 + 10 + img_h/2, image=photo, tags=tags)
             self.image_items[node.id] = img_id
-            img_h_offset = img_h + 10
+            img_h_offset = img_h + IMAGE_SPACING
 
         curr_y = y - h/2 + 10 + img_h_offset
         
@@ -315,14 +314,14 @@ class GraphicsEngine:
             p_h = 4
             highlight_id = self._create_rounded_rect(
                 x - w/2 - 10, y - h/2 - p_h, x + w/2 + 10, y + h/2 + p_h,
-                radius=6, fill="#E3F2FD", outline="#2196F3", width=1, tags=("node", node.id)
+                radius=6, fill=COLOR_HIGHLIGHT_FILL, outline=COLOR_HIGHLIGHT_OUTLINE, width=1, tags=("node", node.id)
             )
             items.append(highlight_id)
 
         if is_root:
             # ルートノード：太い枠線の角丸長方形
             outline_w = 4 if is_selected else 3
-            fill_color = "#E3F2FD" if is_selected else "white"
+            fill_color = COLOR_ROOT_FILL if is_selected else "white"
             rect_id = self._create_rounded_rect(
                 x - w/2 - 12, y - h/2 - 10, x + w/2 + 12, y + h/2 + 10,
                 radius=10, fill=fill_color, outline=color, width=outline_w, tags=("node", node.id)

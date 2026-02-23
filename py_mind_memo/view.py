@@ -6,10 +6,15 @@ from .editor import NodeEditor
 from .drag_drop import DragDropHandler
 from .navigation import KeyboardNavigator
 from .persistence import PersistenceHandler
+from tkinter import messagebox
+from .constants import (
+    DEFAULT_LOGICAL_CENTER_X, DEFAULT_LOGICAL_CENTER_Y,
+    CANVAS_MARGIN, COLOR_CANVAS_BG
+)
 
 class MindMapView:
-    LOGICAL_CENTER_X = 5000
-    LOGICAL_CENTER_Y = 5000
+    LOGICAL_CENTER_X = DEFAULT_LOGICAL_CENTER_X
+    LOGICAL_CENTER_Y = DEFAULT_LOGICAL_CENTER_Y
 
     def __init__(self, root: tk.Tk):
         self.root = root
@@ -25,7 +30,7 @@ class MindMapView:
         self.h_scroll = tk.Scrollbar(self.main_frame, orient=tk.HORIZONTAL)
         self.h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
         
-        self.canvas = tk.Canvas(self.main_frame, bg="#fafafa", highlightthickness=0,
+        self.canvas = tk.Canvas(self.main_frame, bg=COLOR_CANVAS_BG, highlightthickness=0,
                                 xscrollcommand=self.h_scroll.set, yscrollcommand=self.v_scroll.set)
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
@@ -179,7 +184,7 @@ class MindMapView:
         if not bbox: return
         
         # コンテンツ周囲に余白
-        margin = 500
+        margin = CANVAS_MARGIN
         new_sr = (bbox[0] - margin, bbox[1] - margin, bbox[2] + margin, bbox[3] + margin)
         self.canvas.config(scrollregion=new_sr)
         
@@ -299,7 +304,6 @@ class MindMapView:
     def on_exit(self):
         """アプリを終了する際の確認"""
         if self.model.is_modified:
-            from tkinter import messagebox
             response = messagebox.askyesnocancel(
                 "py_mind_memo",
                 "Do you want to save changes before exiting?"
