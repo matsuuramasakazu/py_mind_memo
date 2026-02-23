@@ -2,7 +2,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 import base64
 from typing import Dict, Optional
-from .models import Node
+from .models import Node, Reference
 from .constants import (
     COLOR_TEXT, COLOR_ROOT_OUTLINE, COLOR_ROOT_FILL,
     COLOR_HIGHLIGHT_FILL, COLOR_HIGHLIGHT_OUTLINE,
@@ -18,6 +18,7 @@ class GraphicsEngine:
         self.text_items: Dict[str, int] = {} 
         self.line_items: Dict[str, list] = {} 
         self.image_items: Dict[str, int] = {}
+        self.reference_items: Dict[str, list] = {} # ref_id -> list of item ids (line and handles)
         self.image_cache: Dict[str, tk.PhotoImage] = {}  # GC防止用のキャッシュ
         
         # 定数
@@ -498,8 +499,69 @@ class GraphicsEngine:
             )
             self.node_items[node.id].append(line_id)
 
+    def draw_reference(self, ref: Reference, source_node: Node, target_node: Node, is_selected: bool = False):
+        if ref.id in self.reference_items:
+            for item in self.reference_items[ref.id]: 
+                self.canvas.delete(item)
+        
+        items = []
+        
+        source_y_center = source_node.y
+        target_y_center = target_node.y
+        
+        if source_y_center >= target_y_center:
+            # 接続元が下、接続先が上 -> 接続元上辺から接続先下辺
+            sy = source_node.y - source_node.height / 2
+            ty = target_node.y + target_node.height / 2
+        else:
+            # 接続元が上、接続先が下 -> 接続元下辺から接続先上辺
+            sy = source_node.y + source_node.height / 2
+            ty = target_node.y - target_node.height / 2
+            
+        sx = source_node.x
+        tx = target_node.x
+        
+        # 制御点の計算
+        if ref.cp1_x is not None and ref.cp1_y is not None:
+            cp1x, cp1y = ref.cp1_x, ref.cp1_y
+        else:
+            cp1x, cp1y = sx, sy + (ty - sy) * 0.3
+            
+        if ref.cp2_x is not None and ref.cp2_y is not None:
+            cp2x, cp2y = ref.cp2_x, ref.cp2_y
+        else:
+            cp2x, cp2y = tx, ty - (ty - sy) * 0.3
+            
+        # 参照線の描画
+        line_id = self.canvas.create_line(
+            sx, sy, cp1x, cp1y, cp2x, cp2y, tx, ty,
+            smooth=True, dash=(8, 4), arrow=tk.LAST,
+            fill="black", width=2, tags=("reference", ref.id)
+        )
+        items.append(line_id)
+        
+        # 選択時のハンドルとガイド線の描画
+        if is_selected:
+            g1 = self.canvas.create_line(sx, sy, cp1x, cp1y, fill="gray", dash=(2,2), tags=("reference_guide", ref.id))
+            g2 = self.canvas.create_line(tx, ty, cp2x, cp2y, fill="gray", dash=(2,2), tags=("reference_guide", ref.id))
+            items.extend([g1, g2])
+            
+            r = 4
+            h1 = self.canvas.create_oval(
+                cp1x - r, cp1y - r, cp1x + r, cp1y + r,
+                fill="white", outline="blue", tags=("reference_handle", f"{ref.id}_cp1")
+            )
+            h2 = self.canvas.create_oval(
+                cp2x - r, cp2y - r, cp2x + r, cp2y + r,
+                fill="white", outline="blue", tags=("reference_handle", f"{ref.id}_cp2")
+            )
+            items.extend([h1, h2])
+            
+        self.reference_items[ref.id] = items
+
     def clear(self):
         self.canvas.delete("all")
         self.node_items.clear()
         self.text_items.clear()
         self.line_items.clear()
+        self.reference_items.clear()
