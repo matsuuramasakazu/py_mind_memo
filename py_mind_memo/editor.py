@@ -64,7 +64,7 @@ class ImageHandler:
             photo = tk.PhotoImage(data=img_data)
             self.add_to_cache(photo)
             return photo
-        except Exception as e:
+        except (base64.binascii.Error, tk.TclError) as e:
             raise ValueError(f"Failed to decode image data: {e}")
 
     def base64_from_photo(self, photo: tk.PhotoImage) -> str:
