@@ -1,6 +1,39 @@
 import uuid
 from typing import List, Optional
 
+class Reference:
+    """トピック間の参照関係を表すクラス"""
+    def __init__(self, source_id: str, target_id: str):
+        self.id = str(uuid.uuid4())
+        self.source_id = source_id
+        self.target_id = target_id
+        # 制御点の相対または絶対座標。Noneの場合は描画時に自動計算
+        self.cp1_x: Optional[float] = None
+        self.cp1_y: Optional[float] = None
+        self.cp2_x: Optional[float] = None
+        self.cp2_y: Optional[float] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "source_id": self.source_id,
+            "target_id": self.target_id,
+            "cp1_x": self.cp1_x,
+            "cp1_y": self.cp1_y,
+            "cp2_x": self.cp2_x,
+            "cp2_y": self.cp2_y
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Reference':
+        ref = cls(data["source_id"], data["target_id"])
+        ref.id = data.get("id", str(uuid.uuid4()))
+        ref.cp1_x = data.get("cp1_x")
+        ref.cp1_y = data.get("cp1_y")
+        ref.cp2_x = data.get("cp2_x")
+        ref.cp2_y = data.get("cp2_y")
+        return ref
+
 class Node:
     """マインドマップの単一のトピックを表すクラス"""
     def __init__(self, text: str, parent: Optional['Node'] = None):
@@ -96,6 +129,7 @@ class MindMapModel:
     """マインドマップ全体を管理するモデル"""
     def __init__(self, root_text: str = "Root Topic"):
         self.root = Node(root_text)
+        self.references: List[Reference] = []
         self.is_modified = False
 
     def add_node(self, parent_node: Node, text: str = "New Topic") -> Node:
@@ -131,8 +165,23 @@ class MindMapModel:
                 return found
         return None
 
+    def find_reference_by_id(self, ref_id: str) -> Optional[Reference]:
+        for ref in self.references:
+            if ref.id == ref_id:
+                return ref
+        return None
+
     def save(self) -> dict:
-        return self.root.to_dict()
+        return {
+            "root": self.root.to_dict(),
+            "references": [ref.to_dict() for ref in self.references]
+        }
 
     def load(self, data: dict):
-        self.root = Node.from_dict(data)
+        if "root" in data:
+            self.root = Node.from_dict(data["root"])
+            self.references = [Reference.from_dict(r) for r in data.get("references", [])]
+        else:
+            # 古いバージョンの形式（ルートトピック直書き）との互換性用
+            self.root = Node.from_dict(data)
+            self.references = []

@@ -1,5 +1,6 @@
 import tkinter as tk
-from .models import MindMapModel, Node
+from .models import MindMapModel, Node, Reference
+from .graphics import GraphicsEngine
 from .graphics import GraphicsEngine
 from .layout import LayoutEngine
 from .editor import NodeEditor
@@ -19,6 +20,12 @@ class MindMapView:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("py_mind_memo - Mindmap like Tool")
+        
+        # 参照関係の編集状態
+        self.reference_edit_mode = False
+        self.reference_source_node = None
+        self.selected_reference = None
+        self.selected_handle = None
         
         # メインフレーム（CanvasとScrollbarを配置）
         self.main_frame = tk.Frame(self.root)
@@ -60,7 +67,8 @@ class MindMapView:
         bind_key("<Tab>", self.on_add_child)
         bind_key("<Return>", self.on_add_sibling)
         bind_key("<F2>", self.on_edit_node)
-        bind_key("<Delete>", self.on_delete_node)
+        bind_key("<Delete>", self.on_delete)
+        bind_key("<Control-r>", self.on_toggle_reference_mode)
         bind_key("<Control-s>", self.persistence.on_save)
         bind_key("<Control-S>", self.persistence.on_save_as) # Ctrl+Shift+S
         bind_key("<Control-o>", self.persistence.on_open)
@@ -79,8 +87,8 @@ class MindMapView:
         # マウスイベントのバインド
         self.canvas.bind("<Button-1>", self._on_canvas_click)
         self.canvas.bind("<Double-Button-1>", self._on_canvas_double_click)
-        self.canvas.bind("<B1-Motion>", lambda e: self.drag_handler.handle_motion(e))
-        self.canvas.bind("<ButtonRelease-1>", lambda e: self.drag_handler.handle_drop(e))
+        self.canvas.bind("<B1-Motion>", self._on_motion)
+        self.canvas.bind("<ButtonRelease-1>", self._on_release)
 
     def on_mouse_wheel(self, event):
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
@@ -96,24 +104,152 @@ class MindMapView:
             cx = self.canvas.canvasx(event.x)
             cy = self.canvas.canvasy(event.y)
             
-            # クリックしたノードを選択状態にする
+            if self.reference_edit_mode:
+                clicked_node = self.find_node_at(cx, cy)
+                if clicked_node:
+                    if self.reference_source_node is None:
+                        self.reference_source_node = clicked_node
+                        self.root.title("py_mind_memo - Mindmap like Tool [Reference Mode - Select Target]")
+                    else:
+                        if self.reference_source_node != clicked_node:
+                            # 既に同じ接続元→接続先の参照が存在するかチェック
+                            exists = any(r.source_id == self.reference_source_node.id and r.target_id == clicked_node.id for r in self.model.references)
+                            if not exists:
+                                # 新しい参照を作成
+                                ref = Reference(self.reference_source_node.id, clicked_node.id)
+                                self.model.references.append(ref)
+                                self.model.is_modified = True
+                            
+                            # 編集モード終了
+                            self.reference_edit_mode = False
+                            self.reference_source_node = None
+                            self.root.title("py_mind_memo - Mindmap like Tool")
+                            self.canvas.config(cursor="")
+                    self.render()
+                return "break"
+
+            # 参照のハンドル（操作点）や線のクリック判定を優先する
+            items = self.canvas.find_overlapping(cx-4, cy-4, cx+4, cy+4)
+            clicked_ref = None
+            clicked_handle = None
+            
+            for item_id in reversed(items):
+                tags = self.canvas.gettags(item_id)
+                if "reference_handle" in tags:
+                    for t in tags:
+                        if t != "reference_handle" and t != "current" and "_" in t and "cp" in t:
+                            clicked_handle = t
+                    if clicked_handle:
+                        break
+                elif "reference" in tags and not clicked_handle:
+                    for t in tags:
+                        if t != "reference" and t != "current":
+                            ref = self.model.find_reference_by_id(t)
+                            if ref: clicked_ref = ref
+
+            if clicked_handle:
+                self.selected_handle = clicked_handle
+                if clicked_ref: self.selected_reference = clicked_ref
+                self.selected_node = None
+                return "break"
+
             clicked_node = self.find_node_at(cx, cy)
             
+            # アイコンクリックの判定を最優先にする（ノード選択状態の切り替え等の前に処理）
+            items = self.canvas.find_overlapping(cx-2, cy-2, cx+2, cy+2)
+            for item_id in reversed(items):
+                tags = self.canvas.gettags(item_id)
+                if "collapse_icon" in tags:
+                    for t in tags:
+                        if t != "collapse_icon" and t != "current":
+                            node = self.model.find_node_by_id(t)
+                            if node:
+                                node.collapsed = not node.collapsed
+                                self.selected_node = node
+                                self.render()
+                                return "break"
+            
+            # 通常モードの処理
             if clicked_node:
-                self.selected_node = clicked_node
-                self.render()
-                
-                # アイコンクリックの判定
-                items = self.canvas.find_overlapping(cx-2, cy-2, cx+2, cy+2)
-                for item_id in items:
-                    tags = self.canvas.gettags(item_id)
-                    if "collapse_icon" in tags:
-                        clicked_node.collapsed = not clicked_node.collapsed
-                        self.render()
-                        return "break"
+                # 別のノードをクリックした場合は、全体再描画ではなく選択状態の部分更新のみ行う
+                if self.selected_node != clicked_node or self.selected_reference is not None:
+                    old_node = self.selected_node
+                    self.selected_node = clicked_node
+                    
+                    if old_node and old_node != self.selected_node:
+                        self.graphics.draw_node(old_node, is_selected=False)
+                    self.graphics.draw_node(self.selected_node, is_selected=True)
+                    
+                    if self.selected_reference is not None:
+                        # 参照の選択状態も解除する
+                        old_ref = self.selected_reference
+                        self.selected_reference = None
+                        source_node = self.model.find_node_by_id(old_ref.source_id)
+                        target_node = self.model.find_node_by_id(old_ref.target_id)
+                        if source_node and target_node:
+                            self.graphics.draw_reference(old_ref, source_node, target_node, is_selected=False)
 
                 # ドラッグ開始の準備
                 self.drag_handler.start_drag(event, self.selected_node)
+            else:
+                if clicked_ref:
+                    if self.selected_reference != clicked_ref or self.selected_node is not None:
+                        old_ref = self.selected_reference
+                        self.selected_reference = clicked_ref
+                        
+                        if old_ref and old_ref != self.selected_reference:
+                            source_node = self.model.find_node_by_id(old_ref.source_id)
+                            target_node = self.model.find_node_by_id(old_ref.target_id)
+                            if source_node and target_node:
+                                self.graphics.draw_reference(old_ref, source_node, target_node, is_selected=False)
+                        
+                        source_node = self.model.find_node_by_id(self.selected_reference.source_id)
+                        target_node = self.model.find_node_by_id(self.selected_reference.target_id)
+                        if source_node and target_node:
+                            self.graphics.draw_reference(self.selected_reference, source_node, target_node, is_selected=True)
+                        
+                        if self.selected_node is not None:
+                            old_node = self.selected_node
+                            self.selected_node = None
+                            self.graphics.draw_node(old_node, is_selected=False)
+                else:
+                    if self.selected_reference is not None:
+                        old_ref = self.selected_reference
+                        self.selected_reference = None
+                        source_node = self.model.find_node_by_id(old_ref.source_id)
+                        target_node = self.model.find_node_by_id(old_ref.target_id)
+                        if source_node and target_node:
+                            self.graphics.draw_reference(old_ref, source_node, target_node, is_selected=False)
+
+    def _on_motion(self, event):
+        if self.selected_handle:
+            cx = self.canvas.canvasx(event.x)
+            cy = self.canvas.canvasy(event.y)
+            try:
+                ref_id, cp_type = self.selected_handle.rsplit("_", 1)
+                ref = self.model.find_reference_by_id(ref_id)
+                if ref:
+                    if cp_type == "cp1":
+                        ref.cp1_x, ref.cp1_y = cx, cy
+                    elif cp_type == "cp2":
+                        ref.cp2_x, ref.cp2_y = cx, cy
+                    self.model.is_modified = True
+                    
+                    # 全体を再描画すると点滅するため、対象の参照線のみを部分再描画する
+                    source_node = self.model.find_node_by_id(ref.source_id)
+                    target_node = self.model.find_node_by_id(ref.target_id)
+                    if source_node and target_node:
+                        self.graphics.draw_reference(ref, source_node, target_node, is_selected=True)
+            except ValueError:
+                pass
+        else:
+            self.drag_handler.handle_motion(event)
+            
+    def _on_release(self, event):
+        if self.selected_handle:
+            self.selected_handle = None
+        else:
+            self.drag_handler.handle_drop(event)
 
     def _on_canvas_double_click(self, event):
         """ダブルクリックで編集モードを開始"""
@@ -144,8 +280,17 @@ class MindMapView:
         return None
 
     def _navigate(self, direction):
+        old_node = self.selected_node
         self.selected_node = self.navigator.navigate(self.selected_node, direction)
-        self.render(force_center=True)
+        
+        # 画面全体ではなくトピックの枠のみ再描画する
+        if old_node and old_node != self.selected_node:
+            self.graphics.draw_node(old_node, is_selected=False)
+        if self.selected_node:
+            self.graphics.draw_node(self.selected_node, is_selected=True)
+            self.ensure_node_visible(self.selected_node, force_center=True)
+        else:
+            self.render(force_center=True)
 
     def _on_load_complete(self, root_node):
         self.selected_node = root_node
@@ -160,6 +305,14 @@ class MindMapView:
             return "break" # 基本的にマインドマップの操作はここで完結させる
         return wrapper
 
+    def _is_node_visible(self, node: Node) -> bool:
+        curr = node.parent
+        while curr:
+            if curr.collapsed:
+                return False
+            curr = curr.parent
+        return True
+
     def render(self, force_center=False):
         self.graphics.clear()
         w, h = self._get_canvas_size()
@@ -169,6 +322,15 @@ class MindMapView:
         
         # 全ノード描画
         self._draw_subtree(self.model.root)
+        
+        # 参照関係の描画
+        for ref in self.model.references:
+            source_node = self.model.find_node_by_id(ref.source_id)
+            target_node = self.model.find_node_by_id(ref.target_id)
+            if source_node and target_node:
+                if self._is_node_visible(source_node) and self._is_node_visible(target_node):
+                    is_selected = (ref == self.selected_reference)
+                    self.graphics.draw_reference(ref, source_node, target_node, is_selected=is_selected)
         
         # スクロールと自動センタリング
         self._update_scroll_and_focus(w, h, force_center)
@@ -278,14 +440,42 @@ class MindMapView:
         self.editor.start_edit(self.selected_node)
         return "break"
 
-    def on_delete_node(self, event):
+    def on_delete(self, event):
         if self.editor.is_editing(): return
-        if self.selected_node.parent:
+        
+        # 参照の削除が優先
+        if self.selected_reference:
+            if self.selected_reference in self.model.references:
+                self.model.references.remove(self.selected_reference)
+                self.model.is_modified = True
+            self.selected_reference = None
+            self.render()
+            return "break"
+            
+        if self.selected_node and self.selected_node.parent:
             parent = self.selected_node.parent
             parent.remove_child(self.selected_node)
+            # 関連する参照関係も削除
+            self.model.references = [ref for ref in self.model.references 
+                                     if ref.source_id != self.selected_node.id and ref.target_id != self.selected_node.id]
             self.model.is_modified = True
             self.selected_node = parent
             self.render()
+
+    def on_toggle_reference_mode(self, event):
+        if self.editor.is_editing(): return
+        self.reference_edit_mode = not self.reference_edit_mode
+        if not self.reference_edit_mode:
+            self.reference_source_node = None
+            self.root.title("py_mind_memo - Mindmap like Tool")
+            self.canvas.config(cursor="")
+        else:
+            self.selected_node = None
+            self.selected_reference = None
+            self.root.title("py_mind_memo - Mindmap like Tool [Reference Mode]")
+            self.canvas.config(cursor="crosshair")
+        self.render()
+        return "break"
 
     def _create_menu(self):
         menubar = tk.Menu(self.root)
