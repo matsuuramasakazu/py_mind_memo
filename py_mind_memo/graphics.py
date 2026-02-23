@@ -564,5 +564,4 @@ class GraphicsEngine:
         self.node_items.clear()
         self.text_items.clear()
         self.line_items.clear()
-        if hasattr(self, 'reference_items'):
-            self.reference_items.clear()
+        self.reference_items.clear()
