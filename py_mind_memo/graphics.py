@@ -161,6 +161,12 @@ class GraphicsEngine:
 
     def get_text_size(self, node: Node, base_font, max_width: int = 250):
         """マルチラインとマークアップ、自動折り返しを考慮したサイズ計算（画像分も含む）"""
+        # キャッシュチェック（テキストとフォント、画像データに変更がなければキャッシュを返す）
+        font_key = f"{base_font[0]}_{base_font[1]}"
+        cache_key = (node.text, font_key, node.image_data is not None)
+        if hasattr(node, '_size_cache') and node._size_cache_key == cache_key:
+            return node._size_cache
+
         wrapped_lines = self._wrap_rich_text(node.text, base_font, max_width)
         
         max_w = 0
@@ -186,6 +192,16 @@ class GraphicsEngine:
         family = base_font[0]
         size = base_font[1]
         
+        # フォントオブジェクトのキャッシュ
+        font_objs = {}
+        def get_font_metrics(style):
+            if style not in font_objs:
+                f = tkfont.Font(family=family, size=size, 
+                               weight="bold" if "bold" in style else "normal", 
+                               slant="italic" if "italic" in style else "roman")
+                font_objs[style] = f
+            return font_objs[style]
+
         for line_segments in wrapped_lines:
             line_w = 0
             line_max_h = 0
@@ -195,19 +211,20 @@ class GraphicsEngine:
                 continue
 
             for txt, style, underline, color in line_segments:
-                font = (family, size, style) if style != "normal" else (family, size)
-                # 高さと幅の計算
-                temp_id = self.canvas.create_text(0, 0, text=txt, font=font)
-                bbox = self.canvas.bbox(temp_id)
-                self.canvas.delete(temp_id)
-                if bbox:
-                    line_w += (bbox[2] - bbox[0])
-                    line_max_h = max(line_max_h, bbox[3] - bbox[1])
+                f_obj = get_font_metrics(style)
+                line_w += f_obj.measure(txt)
+                # フォントの高さ（アセント+ディセント）をベースにする
+                line_max_h = max(line_max_h, f_obj.metrics("linespace"))
             
             max_w = max(max_w, line_w)
             total_h += (line_max_h if line_max_h > 0 else size + 10)
             
-        return max(100, max(max_w + 20, img_w + 20)), max(35, total_h + 12 + img_h)
+        result = max(100, max(max_w + 20, img_w + 20)), max(35, total_h + 12 + img_h)
+        # キャッシュに保存
+        node._size_cache = result
+        node._size_cache_key = cache_key
+        return result
+
 
     def _draw_rich_text(self, x, y, node, base_font, tags):
         """リッチテキストを自動折り返しを考慮して描画する（画像対応）"""
@@ -362,33 +379,66 @@ class GraphicsEngine:
             return self._get_subtree_connection_points(node, parent)
 
     def _get_root_connection_points(self, node: Node, parent: Node):
-        """ルートからの接続点を計算"""
-        side_siblings = [c for c in parent.children if c.direction == node.direction]
-        try:
-            side_idx = side_siblings.index(node) % 3
-        except ValueError:
-            side_idx = 0
-        
+        """ルートからの接続点を計算。
+
+        接続線の終点は、子トピックの下線のうち root topic に近い側の端点。
+        root topic の矩形輪郭と、root中心から終点への方向ベクトルの交点を起点とする。
+        """
+        # 子トピック側の終点：root に近い側の下線端点
+        # draw_node で引かれる下線は lx1=x-w/2-5, lx2=x+w/2+5
+        if node.direction != 'left':
+            # 右側の子 → 左端（root 寄り）
+            nx = node.x - node.width / 2 - 5
+        else:
+            # 左側の子 → 右端（root 寄り）
+            nx = node.x + node.width / 2 + 5
+        ny = node.y + node.height / 2
+
+        # root topic の矩形の半幅・半高（draw_node の角丸矩形マージンと合わせる）
         w_h = parent.width / 2 + 12
         h_h = parent.height / 2 + 10
-        
-        if node.direction != 'left':
-            if side_idx == 0: px, py = parent.x + w_h, parent.y - h_h
-            elif side_idx == 1: px, py = parent.x + w_h, parent.y + h_h
-            else: px, py = parent.x + w_h, parent.y
-        else:
-            if side_idx == 0: px, py = parent.x - w_h, parent.y - h_h
-            elif side_idx == 1: px, py = parent.x - w_h, parent.y + h_h
-            else: px, py = parent.x - w_h, parent.y
-            
-        nx = node.x - node.width/2 if node.x > parent.x else node.x + node.width/2
-        ny = node.y + node.height/2
-        
-        dx = nx - px
-        cp1x, cp2x = px + dx * 0.4, px + dx * 0.6
+
+        # root 中心 → 子トピック終点 の方向ベクトル
+        dx = nx - parent.x
+        dy = ny - parent.y
+
+        # 矩形輪郭との交点を計算（クリッピング）
+        px, py = self._calc_rect_edge_point(parent.x, parent.y, w_h, h_h, dx, dy)
+
+        # 制御点（テーパードベジェ用：水平方向補間）
+        ddx = nx - px
+        cp1x, cp2x = px + ddx * 0.4, px + ddx * 0.6
         cp1y = cp2y = ny if abs(ny - py) > 1 else py
-        
-        return (px, py), (cp1x, cp1y), (cp2x, cp2y), (nx, ny), True # is_tapered
+
+        return (px, py), (cp1x, cp1y), (cp2x, cp2y), (nx, ny), True  # is_tapered
+
+
+    @staticmethod
+    def _calc_rect_edge_point(cx: float, cy: float, w_h: float, h_h: float,
+                              dx: float, dy: float):
+        """
+        中心 (cx, cy)、半幅 w_h、半高 h_h の矩形の輪郭上の点を返す。
+        中心から (dx, dy) 方向ベクトルが矩形の辺と交わる点。
+        dx=dy=0 の場合は中心をそのまま返す。
+        """
+        if dx == 0 and dy == 0:
+            return cx, cy
+
+        t_candidates = []
+        # 右辺 (+x) / 左辺 (-x)
+        if dx != 0:
+            t = (w_h if dx > 0 else -w_h) / dx
+            if t > 0:
+                t_candidates.append(t)
+        # 下辺 (+y) / 上辺 (-y)
+        if dy != 0:
+            t = (h_h if dy > 0 else -h_h) / dy
+            if t > 0:
+                t_candidates.append(t)
+
+        t = min(t_candidates)
+        return cx + dx * t, cy + dy * t
+
 
     def _get_subtree_connection_points(self, node: Node, parent: Node):
         """子トピック間の接続点を計算"""
