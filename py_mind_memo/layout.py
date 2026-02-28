@@ -24,8 +24,8 @@ def compute_root_child_angles(n: int) -> List[float]:
     angles = []
     if n % 2 == 1:
         # 奇数
-        left_count = (n + 1) // 2   # 先頭グループ（左側：0°〜180°）
-        right_count = (n - 1) // 2  # 後半グループ（右側：180°〜360°）
+        left_count = (n + 1) // 2   # 先頭グループ（右側：0°〜180°）
+        right_count = (n - 1) // 2  # 後半グループ（左側：180°〜360°）
         for m in range(1, left_count + 1):
             angles.append(m * 180.0 / (left_count + 1))
         for m in range(1, right_count + 1):
@@ -45,9 +45,9 @@ class LayoutEngine:
     """マインドマップの配置計算を担当するクラス"""
 
     def __init__(self):
-        self.h_margin = 80   # ルート子トピックと root topic 間の最小余白
+        self.h_margin = 80   # root topic と子トピック列の水平余白
         self.v_gap = 40      # （互換性のため残す）
-        self.spacing_y = 30  # 垂直方向の最小間隔（孫以降のサブツリー用）
+        self.spacing_y = 30  # 垂直方向の最小間隔
 
     def calculate_subtree_height(self, node: Node, graphics):
         """そのノードを含むサブツリー全体の必要高さを計算・更新する"""
@@ -82,56 +82,83 @@ class LayoutEngine:
 
         # 各子トピックのサイズを事前計算
         for child in children:
-            font = graphics.font
-            child.width, child.height = graphics.get_text_size(child, font)
+            child.width, child.height = graphics.get_text_size(child, graphics.font)
 
-        # 配置半径を root topic サイズと子トピックサイズから動的に決定
-        # root topic の外縁 + h_margin + 最大の子の半幅 を確保する
-        max_child_half_w = max(c.width / 2 for c in children) if children else 0
-        max_child_half_h = max(c.height / 2 for c in children) if children else 0
-        root_half_w = root.width / 2 + 12  # draw_node の角丸矩形マージンと合わせる
-        root_half_h = root.height / 2 + 10
+        # ── 角度で左右グループに振り分ける ──
+        # 角度 0°〜180°  → 右側（direction='right'）
+        # 角度 180°〜360° → 左側（direction='left'）
+        # 同時に「上から下」の縦順を決めるため、角度の値で並べる
+        #   右側: angle 昇順 → 小さい角度ほど画面上方
+        #   左側: angle 降順 → 大きい角度（360°寄り）ほど画面上方
 
-        # 直接の衝突を避けるため、どの方向でも root topic の輪郭から h_margin 離れた位置に子を置く
-        # 半径は root のサイズを考慮して各軸で計算し大きい方を取る
-        radius_x = root_half_w + self.h_margin + max_child_half_w
-        radius_y = root_half_h + self.h_margin + max_child_half_h
-        # 楕円的な配置にならないよう大きい方で統一
-        radius = max(radius_x, radius_y)
+        right_pairs: List[Tuple[float, Node]] = []
+        left_pairs: List[Tuple[float, Node]] = []
 
-        for child, angle_deg in zip(children, angles):
-            angle_rad = math.radians(angle_deg)
-            # 真上=0°、時計回り → x=sin, y=-cos
-            child.x = center_x + radius * math.sin(angle_rad)
-            child.y = center_y - radius * math.cos(angle_rad)
-
-            # direction を左右で設定（collapse_icon 描画や drag_drop との互換性のため）
-            # 角度 0°〜180° → 右側、180°〜360° → 左側
-            if angle_deg <= 180.0:
+        for child, angle in zip(children, angles):
+            if angle <= 180.0:
+                right_pairs.append((angle, child))
                 child.direction = 'right'
             else:
+                left_pairs.append((angle, child))
                 child.direction = 'left'
-            # 子孫にも方向を伝播
             child.update_direction_recursive(child.direction)
 
-            # 孫以降のサブツリーを従来の縦方向レイアウトで配置
-            if child.children and not child.collapsed:
-                self._layout_branch(child.children, child.x, child.y, child.direction)
+        # 縦並び順（上→下）に並べ直す
+        right_pairs.sort(key=lambda t: t[0])          # 昇順
+        left_pairs.sort(key=lambda t: t[0], reverse=True)  # 降順
 
-    # ──────────────────────────────────────────────
-    # 孫以降のサブツリー配置（従来ロジックをそのまま維持）
-    # ──────────────────────────────────────────────
+        right_nodes = [c for _, c in right_pairs]
+        left_nodes  = [c for _, c in left_pairs]
+
+        # ── 固定 X 列を計算（root サイズ + 余白 + 子の半幅） ──
+        root_half_w = root.width / 2 + 12  # draw_node の角丸矩形マージンと合わせる
+
+        if right_nodes:
+            max_hw = max(c.width / 2 for c in right_nodes)
+            right_x = center_x + root_half_w + self.h_margin + max_hw
+            self._layout_root_children(right_nodes, right_x, center_y, 'right')
+
+        if left_nodes:
+            max_hw = max(c.width / 2 for c in left_nodes)
+            left_x = center_x - root_half_w - self.h_margin - max_hw
+            self._layout_root_children(left_nodes, left_x, center_y, 'left')
+
+    # ──────────────────────────────────────────────────────────────
+    # root 直下子ノードの縦方向配置
+    # ──────────────────────────────────────────────────────────────
+
+    def _layout_root_children(self, nodes: List[Node], child_x: float,
+                               center_y: float, direction: str):
+        """root 直下の子ノードを固定 X 列・縦方向に等間隔で配置する。"""
+        total_height = (sum(n.subtree_height for n in nodes)
+                        + self.spacing_y * (len(nodes) - 1))
+        current_y = center_y - total_height / 2
+
+        for node in nodes:
+            node.x = child_x
+            node.y = current_y + node.subtree_height / 2
+
+            if node.children and not node.collapsed:
+                self._layout_branch(node.children, node.x, node.y, direction)
+
+            current_y += node.subtree_height + self.spacing_y
+
+    # ──────────────────────────────────────────────────────────────
+    # 孫以降のサブツリー配置（従来ロジック）
+    # ──────────────────────────────────────────────────────────────
 
     def _get_group_height(self, nodes: List[Node]) -> float:
         if not nodes:
             return 0
         return sum(n.subtree_height for n in nodes) + self.spacing_y * (len(nodes) - 1)
 
-    def _layout_branch(self, nodes, parent_x, start_y, direction):
+    def _layout_branch(self, nodes: List[Node], parent_x: float,
+                        start_y: float, direction: str):
         if not nodes:
             return
 
-        total_height = sum(n.subtree_height for n in nodes) + self.spacing_y * (len(nodes) - 1)
+        total_height = (sum(n.subtree_height for n in nodes)
+                        + self.spacing_y * (len(nodes) - 1))
         current_y = start_y - total_height / 2
 
         for node in nodes:

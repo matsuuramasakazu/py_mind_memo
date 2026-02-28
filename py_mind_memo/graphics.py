@@ -363,12 +363,18 @@ class GraphicsEngine:
 
     def _get_root_connection_points(self, node: Node, parent: Node):
         """ルートからの接続点を計算。
-        
-        root topic の矩形輪郭と、root中心から子トピックへの方向ベクトルとの
-        交点を接続線の起点とする。
+
+        接続線の終点は、子トピックの下線のうち root topic に近い側の端点。
+        root topic の矩形輪郭と、root中心から終点への方向ベクトルの交点を起点とする。
         """
-        # 子トピック側の終点（下線の中央）
-        nx = node.x
+        # 子トピック側の終点：root に近い側の下線端点
+        # draw_node で引かれる下線は lx1=x-w/2-5, lx2=x+w/2+5
+        if node.direction != 'left':
+            # 右側の子 → 左端（root 寄り）
+            nx = node.x - node.width / 2 - 5
+        else:
+            # 左側の子 → 右端（root 寄り）
+            nx = node.x + node.width / 2 + 5
         ny = node.y + node.height / 2
 
         # root topic の矩形の半幅・半高（draw_node の角丸矩形マージンと合わせる）
@@ -382,12 +388,13 @@ class GraphicsEngine:
         # 矩形輪郭との交点を計算（クリッピング）
         px, py = self._calc_rect_edge_point(parent.x, parent.y, w_h, h_h, dx, dy)
 
-        # 制御点（テーパードベジェ用：従来と同じ水平方向補間）
+        # 制御点（テーパードベジェ用：水平方向補間）
         ddx = nx - px
         cp1x, cp2x = px + ddx * 0.4, px + ddx * 0.6
         cp1y = cp2y = ny if abs(ny - py) > 1 else py
 
         return (px, py), (cp1x, cp1y), (cp2x, cp2y), (nx, ny), True  # is_tapered
+
 
     @staticmethod
     def _calc_rect_edge_point(cx: float, cy: float, w_h: float, h_h: float,
