@@ -362,33 +362,61 @@ class GraphicsEngine:
             return self._get_subtree_connection_points(node, parent)
 
     def _get_root_connection_points(self, node: Node, parent: Node):
-        """ルートからの接続点を計算"""
-        side_siblings = [c for c in parent.children if c.direction == node.direction]
-        try:
-            side_idx = side_siblings.index(node) % 3
-        except ValueError:
-            side_idx = 0
+        """ルートからの接続点を計算。
         
+        root topic の矩形輪郭と、root中心から子トピックへの方向ベクトルとの
+        交点を接続線の起点とする。
+        """
+        # 子トピック側の終点（下線の中央）
+        nx = node.x
+        ny = node.y + node.height / 2
+
+        # root topic の矩形の半幅・半高（draw_node の角丸矩形マージンと合わせる）
         w_h = parent.width / 2 + 12
         h_h = parent.height / 2 + 10
-        
-        if node.direction != 'left':
-            if side_idx == 0: px, py = parent.x + w_h, parent.y - h_h
-            elif side_idx == 1: px, py = parent.x + w_h, parent.y + h_h
-            else: px, py = parent.x + w_h, parent.y
-        else:
-            if side_idx == 0: px, py = parent.x - w_h, parent.y - h_h
-            elif side_idx == 1: px, py = parent.x - w_h, parent.y + h_h
-            else: px, py = parent.x - w_h, parent.y
-            
-        nx = node.x - node.width/2 if node.x > parent.x else node.x + node.width/2
-        ny = node.y + node.height/2
-        
-        dx = nx - px
-        cp1x, cp2x = px + dx * 0.4, px + dx * 0.6
+
+        # root 中心 → 子トピック終点 の方向ベクトル
+        dx = nx - parent.x
+        dy = ny - parent.y
+
+        # 矩形輪郭との交点を計算（クリッピング）
+        px, py = self._calc_rect_edge_point(parent.x, parent.y, w_h, h_h, dx, dy)
+
+        # 制御点（テーパードベジェ用：従来と同じ水平方向補間）
+        ddx = nx - px
+        cp1x, cp2x = px + ddx * 0.4, px + ddx * 0.6
         cp1y = cp2y = ny if abs(ny - py) > 1 else py
-        
-        return (px, py), (cp1x, cp1y), (cp2x, cp2y), (nx, ny), True # is_tapered
+
+        return (px, py), (cp1x, cp1y), (cp2x, cp2y), (nx, ny), True  # is_tapered
+
+    @staticmethod
+    def _calc_rect_edge_point(cx: float, cy: float, w_h: float, h_h: float,
+                              dx: float, dy: float):
+        """
+        中心 (cx, cy)、半幅 w_h、半高 h_h の矩形の輪郭上の点を返す。
+        中心から (dx, dy) 方向ベクトルが矩形の辺と交わる点。
+        dx=dy=0 の場合は中心をそのまま返す。
+        """
+        if dx == 0 and dy == 0:
+            return cx, cy
+
+        t_candidates = []
+        # 右辺 (+x) / 左辺 (-x)
+        if dx != 0:
+            t = (w_h if dx > 0 else -w_h) / dx
+            if t > 0:
+                t_candidates.append(t)
+        # 下辺 (+y) / 上辺 (-y)
+        if dy != 0:
+            t = (h_h if dy > 0 else -h_h) / dy
+            if t > 0:
+                t_candidates.append(t)
+
+        if not t_candidates:
+            return cx, cy
+
+        t = min(t_candidates)
+        return cx + dx * t, cy + dy * t
 
     def _get_subtree_connection_points(self, node: Node, parent: Node):
         """子トピック間の接続点を計算"""
