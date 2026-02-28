@@ -81,6 +81,7 @@ class NodeEditor:
         self.on_finish = on_finish
         self.model = model
         self.editing_entry = None
+        self.editing_node = None
         self.window_id = None
         self.finishing = False
         
@@ -95,6 +96,7 @@ class NodeEditor:
             return
             
         self.image_handler.clear_cache()
+        self.editing_node = node
 
         # Textウィジェットの作成
         lines = node.text.count("\n") + 1
@@ -139,7 +141,7 @@ class NodeEditor:
         self.root.after(100, set_focus)
         
         # バインド設定
-        entry.bind("<Return>", lambda e: self.finish_edit(node))
+        entry.bind("<Return>", lambda e: self.finish_edit())
         def insert_newline(e):
             entry.insert("insert", "\n")
             return "break"
@@ -150,7 +152,7 @@ class NodeEditor:
         def on_focus_out(e):
             if self.image_handler.inserting_image:
                 return
-            self.finish_edit(node)
+            self.finish_edit()
             
         entry.bind("<FocusOut>", on_focus_out)
         entry.bind("<Tab>", lambda e: "break")
@@ -178,14 +180,19 @@ class NodeEditor:
             
         return "break"
 
-    def finish_edit(self, node: Node):
+    def finish_edit(self, node: Node = None):
         if self.finishing or not self.editing_entry:
             return "break"
+        
+        target_node = node if node else self.editing_node
+        if not target_node:
+            return "break"
+            
         self.finishing = True
         
         new_text = self.editing_entry.get("1.0", "end-1c")
-        if new_text is not None and new_text != node.text:
-            node.text = new_text
+        if new_text is not None and new_text != target_node.text:
+            target_node.text = new_text
             self.model.is_modified = True
             
         self._cleanup()
@@ -204,6 +211,7 @@ class NodeEditor:
     def _cleanup(self):
         if self.editing_entry:
             self.editing_entry = None
+        self.editing_node = None
         if self.window_id:
             self.canvas.delete(self.window_id)
             self.window_id = None

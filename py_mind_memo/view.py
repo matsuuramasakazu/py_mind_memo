@@ -258,9 +258,9 @@ class MindMapView:
         clicked_node = self.find_node_at(cx, cy)
         
         if clicked_node:
-            # 既に編集中なら一旦キャンセル（前の変更はFocusOutで保存されているはず）
+            # 既に編集中なら一旦保存・終了
             if self.editor.is_editing():
-                self.editor.cancel_edit()
+                self.editor.finish_edit()
             
             self.selected_node = clicked_node
             # self.render() は on_edit_node -> start_edit 内で必要な場合に行われるか、
