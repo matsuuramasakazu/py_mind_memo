@@ -88,7 +88,7 @@ class NodeEditor:
         self.image_handler = ImageHandler(root)
 
     def is_editing(self):
-        return self.editing_entry is not None
+        return self.editing_entry is not None and self.editing_entry.winfo_exists()
 
     def start_edit(self, node: Node):
         if self.editing_entry:

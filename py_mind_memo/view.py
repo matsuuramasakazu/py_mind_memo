@@ -97,8 +97,8 @@ class MindMapView:
         self.canvas.xview_scroll(int(-1*(event.delta/120)), "units")
 
     def _on_canvas_click(self, event):
+        self.canvas.focus_set()
         if not self.editor.is_editing():
-            self.canvas.focus_set()
             
             # 座標の取得（スクロール位置を考慮）
             cx = self.canvas.canvasx(event.x)
@@ -258,8 +258,14 @@ class MindMapView:
         clicked_node = self.find_node_at(cx, cy)
         
         if clicked_node:
+            # 既に編集中なら一旦キャンセル（前の変更はFocusOutで保存されているはず）
+            if self.editor.is_editing():
+                self.editor.cancel_edit()
+            
             self.selected_node = clicked_node
-            self.render()
+            # self.render() は on_edit_node -> start_edit 内で必要な場合に行われるか、
+            # あるいは編集開始時にウィジェットを重ねるだけなので、ここでは一旦不要。
+            # むしろ render() を呼ぶとウィジェットが消える原因になる。
             self.on_edit_node(None)
 
     def find_node_at(self, x, y):
