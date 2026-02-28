@@ -11,18 +11,25 @@ class TestPersistenceLogic(unittest.TestCase):
         self.render_callback = MagicMock()
         self.handler = PersistenceHandler(self.model, self.render_callback)
 
-    def test_filename_sanitization(self):
-        # re.sub による置換ロジックを直接テスト
-        def sanitize(text):
-            name = re.sub(r'<[^>]+>', '', text)
-            name = re.sub(r'[\s\\/:*?\"<>|]+', '_', name)
-            return name.strip('_')[:20]
+    @patch("tkinter.filedialog.asksaveasfilename")
+    def test_on_save_as_sanitization(self, mock_ask):
+        # 正常なタイトル
+        mock_ask.return_value = "" # 保存をキャンセル
+        self.model.root.text = "Normal Title"
+        self.handler.on_save_as()
+        self.assertEqual(mock_ask.call_args.kwargs['initialfile'], "Normal_Title")
+        
+        # タグと特殊文字を含むタイトル
+        mock_ask.reset_mock()
+        self.model.root.text = "<b>Bold</b>/File:Name"
+        self.handler.on_save_as()
+        self.assertEqual(mock_ask.call_args.kwargs['initialfile'], "Bold_File_Name")
 
-        self.assertEqual(sanitize("Normal Title"), "Normal_Title")
-        self.assertEqual(sanitize("<b>Bold</b> Title"), "Bold_Title")
-        self.assertEqual(sanitize("File/With:Invalid*Chars?"), "File_With_Invalid_Ch")
-        self.assertEqual(sanitize("   Trim Space   "), "Trim_Space")
-        self.assertEqual(sanitize("VeryLongTitleThatExceedsTwentyCharacters"), "VeryLongTitleThatExc")
+        # 長いタイトル
+        mock_ask.reset_mock()
+        self.model.root.text = "VeryLongTitleThatExceedsTwentyCharacters"
+        self.handler.on_save_as()
+        self.assertEqual(mock_ask.call_args.kwargs['initialfile'], "VeryLongTitleThatExc")
 
     @patch("py_mind_memo.persistence.open", new_callable=mock_open)
     def test_write_to_file(self, mocked_open):

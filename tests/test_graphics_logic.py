@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
 from py_mind_memo.graphics import GraphicsEngine
-from py_mind_memo.models import Node
 
 class TestGraphicsLogic(unittest.TestCase):
     def setUp(self):
