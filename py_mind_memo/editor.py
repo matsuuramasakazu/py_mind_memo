@@ -168,44 +168,17 @@ class NodeEditor:
             return "break"
 
         try:
-            # 1トピック1画像の仕様: 既存の画像があれば削除する
-            # tk.Text内の画像を検索して削除
-            current_image_indices = self.editing_entry.image_names()
-            if current_image_indices:
-                # エディタの最初から最後まで画像を検索して削除
-                start = "1.0"
-                while True:
-                    img_info = self.editing_entry.image_cget(start, "-image")
-                    if img_info:
-                        self.editing_entry.delete(start)
-                    
-                    # 次の画像を探す（簡易的な実装として先頭から順に走査）
-                    # 実際には差し替えなので、エディタ全体の画像データをクリアしてから挿入するのが確実
-                    break # 1つ見つけたらとりあえず抜ける(ループ構成は要件に合わせる)
-
-            # エディタ内の全ての画像を一旦削除（1つに制限するため）
-            # image_names() はPhoto名が返るため、Text内の位置を特定して削除する必要がある
-            # 簡略化のため、既存の画像をクリアして最前面に挿入する
-            
-            # 全ての画像アイテムを Text から削除
-            for name in self.editing_entry.image_names():
-                # このText内の特定位置にある画像を削除するのは煩雑なため、
-                # インデックス走査で見つかった画像を削除する
-                pass
-
-            # 実際には差し替えなので、エディタの先頭付近に画像があれば削除する等の対応が必要
-            # ここでは「最後にインポートしたもので差し替える」ため、既存の画像属性をクリアした上で挿入
-            
-            photo = self.image_handler.process_image(file_path)
-            
-            # インデックス "1.0" に画像があるか確認し、あれば削除
+            # 1トピック1画像の仕様に従い、既存の画像を差し替えます。
+            # 画像は常に先頭 (1.0) にあると想定しています。
             try:
                 if self.editing_entry.image_cget("1.0", "-image"):
                     self.editing_entry.delete("1.0")
             except tk.TclError:
                 pass
 
+            photo = self.image_handler.process_image(file_path)
             self.editing_entry.image_create("1.0", image=photo)
+            
             # モデルの更新（この時点では一時的、finish_editで確定）
             node.image_data = self.image_handler.base64_from_photo(photo)
             node.image_path = file_path
@@ -231,14 +204,16 @@ class NodeEditor:
         new_text = self.editing_entry.get("1.0", "end-1c")
         
         # エディタ内に画像が残っているかチェック
-        # image_names() はそのTextウィジェットに埋め込まれている画像のリストを返す
         has_image = len(self.editing_entry.image_names()) > 0
+        image_was_present = bool(target_node.image_data or target_node.image_path)
         
-        if not has_image:
-            if target_node.image_data or target_node.image_path:
-                target_node.image_data = None
-                target_node.image_path = None
-                self.model.is_modified = True
+        if not has_image and image_was_present:
+            target_node.image_data = None
+            target_node.image_path = None
+            self.model.is_modified = True
+            # 画像が削除された場合、画像表示用に挿入された先頭の改行を削除
+            if new_text.startswith('\n'):
+                new_text = new_text[1:]
 
         if new_text is not None and new_text != target_node.text:
             target_node.text = new_text

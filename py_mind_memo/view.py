@@ -1,4 +1,5 @@
 import tkinter as tk
+import os
 from .models import MindMapModel, Node, Reference
 from .graphics import GraphicsEngine
 from .graphics import GraphicsEngine
@@ -534,7 +535,6 @@ class MindMapView:
 
     def _show_enlarged_image(self, node: Node):
         """元の画像を拡大表示ウィンドウで表示する"""
-        import os
         if not node.image_path or not os.path.exists(node.image_path):
             messagebox.showerror("Error", f"Original image file not found:\n{node.image_path}")
             return

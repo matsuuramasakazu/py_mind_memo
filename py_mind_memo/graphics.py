@@ -179,19 +179,16 @@ class GraphicsEngine:
         img_w = 0
         img_h = 0
         if node.image_data:
+            current_data_hash = hash(node.image_data)
+            photo = None
+
             if node.id in self.image_cache:
-                photo, cached_data_hash = self.image_cache[node.id]
-                current_data_hash = hash(node.image_data)
-                if cached_data_hash != current_data_hash:
-                    # データが変わっているので再作成
-                    try:
-                        photo = tk.PhotoImage(data=base64.b64decode(node.image_data))
-                        self.image_cache[node.id] = (photo, current_data_hash)
-                    except Exception:
-                        photo = None
-            else:
+                cached_photo, cached_data_hash = self.image_cache[node.id]
+                if cached_data_hash == current_data_hash:
+                    photo = cached_photo
+            
+            if photo is None:
                 try:
-                    current_data_hash = hash(node.image_data)
                     photo = tk.PhotoImage(data=base64.b64decode(node.image_data))
                     self.image_cache[node.id] = (photo, current_data_hash)
                 except Exception:
@@ -253,8 +250,8 @@ class GraphicsEngine:
             photo, _ = self.image_cache[node.id]
             img_h = photo.height()
             # 画像をテキストの上に描画
-            img_tags = list(tags) + ["node_image", node.id]
-            img_id = self.canvas.create_image(x, y - h/2 + 10 + img_h/2, image=photo, tags=img_tags)
+            img_tags = list(tags) + ["node_image"]
+            img_id = self.canvas.create_image(x, y - h/2 + 10 + img_h/2, image=photo, tags=tuple(img_tags))
             self.image_items[node.id] = img_id
             img_h_offset = img_h + IMAGE_SPACING
 
