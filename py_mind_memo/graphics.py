@@ -436,11 +436,9 @@ class GraphicsEngine:
             if t > 0:
                 t_candidates.append(t)
 
-        if not t_candidates:
-            return cx, cy
-
         t = min(t_candidates)
         return cx + dx * t, cy + dy * t
+
 
     def _get_subtree_connection_points(self, node: Node, parent: Node):
         """子トピック間の接続点を計算"""

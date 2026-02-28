@@ -11,25 +11,25 @@ def compute_root_child_angles(n: int) -> List[float]:
     n=1〜4 はハードコード、n>=5 は Issue #9 の数式で計算する。
     各グループ内でのインデックスを m=1,2,... として使用する。
     """
-    if n == 1:
-        return [90.0]
-    if n == 2:
-        return [60.0, 120.0]
-    if n == 3:
-        return [60.0, 120.0, 240.0]
-    if n == 4:
-        return [60.0, 120.0, 240.0, 300.0]
+    precomputed_angles = {
+        1: [90.0],
+        2: [60.0, 120.0],
+        3: [60.0, 120.0, 240.0],
+        4: [60.0, 120.0, 240.0, 300.0],
+    }
+    if n in precomputed_angles:
+        return precomputed_angles[n]
 
     # n >= 5
     angles = []
     if n % 2 == 1:
         # 奇数
-        left_count = (n + 1) // 2   # 先頭グループ（右側：0°〜180°）
-        right_count = (n - 1) // 2  # 後半グループ（左側：180°〜360°）
-        for m in range(1, left_count + 1):
-            angles.append(m * 180.0 / (left_count + 1))
-        for m in range(1, right_count + 1):
-            angles.append(180.0 + m * 180.0 / (right_count + 1))
+        right_side_count = (n + 1) // 2   # 先頭グループ（右側：0°〜180°）
+        left_side_count = (n - 1) // 2  # 後半グループ（左側：180°〜360°）
+        for m in range(1, right_side_count + 1):
+            angles.append(m * 180.0 / (right_side_count + 1))
+        for m in range(1, left_side_count + 1):
+            angles.append(180.0 + m * 180.0 / (left_side_count + 1))
     else:
         # 偶数
         half = n // 2
@@ -39,6 +39,7 @@ def compute_root_child_angles(n: int) -> List[float]:
             angles.append(180.0 + m * 180.0 / (half + 1))
 
     return angles
+
 
 
 class LayoutEngine:
