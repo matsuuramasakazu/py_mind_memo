@@ -1,4 +1,5 @@
 import tkinter as tk
+import os
 from .models import MindMapModel, Node, Reference
 from .graphics import GraphicsEngine
 from .graphics import GraphicsEngine
@@ -127,7 +128,23 @@ class MindMapView:
                             self.canvas.config(cursor="")
                     self.render()
                 return "break"
+            
+            # 通常モードの座標取得
+            cx = self.canvas.canvasx(event.x)
+            cy = self.canvas.canvasy(event.y)
 
+            # 画像クリックの判定を最優先にする
+            items = self.canvas.find_overlapping(cx-2, cy-2, cx+2, cy+2)
+            for item_id in reversed(items):
+                tags = self.canvas.gettags(item_id)
+                if "node_image" in tags:
+                    for t in tags:
+                        if t not in ("node_image", "text", "current", "node"):
+                            node = self.model.find_node_by_id(t)
+                            if node and node.image_path:
+                                self._show_enlarged_image(node)
+                                return "break"
+            
             # 参照のハンドル（操作点）や線のクリック判定を優先する
             items = self.canvas.find_overlapping(cx-4, cy-4, cx+4, cy+4)
             clicked_ref = None
@@ -515,3 +532,68 @@ class MindMapView:
                 pass
         else:
             self.root.quit()
+
+    def _show_enlarged_image(self, node: Node):
+        """元の画像を拡大表示ウィンドウで表示する"""
+        if not node.image_path or not os.path.exists(node.image_path):
+            messagebox.showerror("Error", f"Original image file not found:\n{node.image_path}")
+            return
+
+        try:
+            # 画像の読み込み（サイズ取得のために先に読み込む）
+            photo = tk.PhotoImage(file=node.image_path)
+            img_w = photo.width()
+            img_h = photo.height()
+
+            # 拡大表示用のウィンドウ作成
+            top = tk.Toplevel(self.root)
+            top.title(f"Enlarged Image - {os.path.basename(node.image_path)}")
+            
+            # デフォルトの最大サイズ
+            max_w, max_h = 800, 600
+            # ボタンやスクロールバーのための余白
+            padding_w, padding_h = 40, 100 
+            
+            # ウィンドウサイズを画像に合わせて調整（ただし最大サイズを超えない）
+            win_w = min(max_w, img_w + padding_w)
+            win_h = min(max_h, img_h + padding_h)
+            
+            top.geometry(f"{int(win_w)}x{int(win_h)}")
+
+            # --- 下から順に配置していくことでボタンを確実に表示させる ---
+            
+            # 1. 閉じるボタンを一番下に配置
+            close_btn = tk.Button(top, text="Close", command=top.destroy, padx=20)
+            close_btn.pack(side=tk.BOTTOM, pady=10)
+
+            # 2. 水平スクロールバーをその上に配置
+            h_scroll = tk.Scrollbar(top, orient=tk.HORIZONTAL) 
+            h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+
+            # 3. 残りのメイン領域にフレームを配置
+            frame = tk.Frame(top)
+            frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+            # スクロールバー (垂直)
+            v_scroll = tk.Scrollbar(frame, orient=tk.VERTICAL)
+            v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+            # キャンバス（画像表示用）
+            canvas = tk.Canvas(frame, bg="gray", highlightthickness=0,
+                               xscrollcommand=h_scroll.set, yscrollcommand=v_scroll.set)
+            canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+            v_scroll.config(command=canvas.yview)
+            h_scroll.config(command=canvas.xview)
+
+            # GC防止
+            canvas.image = photo 
+            
+            # 画像を配置
+            canvas.create_image(0, 0, image=photo, anchor="nw")
+            
+            # スクロール領域の設定
+            canvas.config(scrollregion=(0, 0, img_w, img_h))
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open enlarged image: {e}")

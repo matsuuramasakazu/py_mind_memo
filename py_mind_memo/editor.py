@@ -168,9 +168,20 @@ class NodeEditor:
             return "break"
 
         try:
+            # 1トピック1画像の仕様に従い、既存の画像を差し替えます。
+            # 画像は常に先頭 (1.0) にあると想定しています。
+            try:
+                if self.editing_entry.image_cget("1.0", "-image"):
+                    self.editing_entry.delete("1.0")
+            except tk.TclError:
+                pass
+
             photo = self.image_handler.process_image(file_path)
-            self.editing_entry.image_create("insert", image=photo)
+            self.editing_entry.image_create("1.0", image=photo)
+            
+            # モデルの更新（この時点では一時的、finish_editで確定）
             node.image_data = self.image_handler.base64_from_photo(photo)
+            node.image_path = file_path
         except ValueError as e:
             messagebox.showerror("Error", str(e))
         except tk.TclError as e:
@@ -191,6 +202,19 @@ class NodeEditor:
         self.finishing = True
         
         new_text = self.editing_entry.get("1.0", "end-1c")
+        
+        # エディタ内に画像が残っているかチェック
+        has_image = len(self.editing_entry.image_names()) > 0
+        image_was_present = bool(target_node.image_data or target_node.image_path)
+        
+        if not has_image and image_was_present:
+            target_node.image_data = None
+            target_node.image_path = None
+            self.model.is_modified = True
+            # 画像が削除された場合、画像表示用に挿入された先頭の改行を削除
+            if new_text.startswith('\n'):
+                new_text = new_text[1:]
+
         if new_text is not None and new_text != target_node.text:
             target_node.text = new_text
             self.model.is_modified = True

@@ -163,7 +163,10 @@ class GraphicsEngine:
         """マルチラインとマークアップ、自動折り返しを考慮したサイズ計算（画像分も含む）"""
         # キャッシュチェック（テキストとフォント、画像データに変更がなければキャッシュを返す）
         font_key = f"{base_font[0]}_{base_font[1]}"
-        cache_key = (node.text, font_key, node.image_data is not None)
+        # image_data 自体をキーに含めると重いため、長さやNoneチェックで判定
+        # 本来はハッシュ値が良いが、まずは単純な変更検知を行う
+        image_key = hash(node.image_data) if node.image_data else None
+        cache_key = (node.text, font_key, image_key)
         if hasattr(node, '_size_cache') and node._size_cache_key == cache_key:
             return node._size_cache
 
@@ -176,12 +179,18 @@ class GraphicsEngine:
         img_w = 0
         img_h = 0
         if node.image_data:
+            current_data_hash = hash(node.image_data)
+            photo = None
+
             if node.id in self.image_cache:
-                photo = self.image_cache[node.id]
-            else:
+                cached_photo, cached_data_hash = self.image_cache[node.id]
+                if cached_data_hash == current_data_hash:
+                    photo = cached_photo
+            
+            if photo is None:
                 try:
                     photo = tk.PhotoImage(data=base64.b64decode(node.image_data))
-                    self.image_cache[node.id] = photo
+                    self.image_cache[node.id] = (photo, current_data_hash)
                 except Exception:
                     photo = None
             
@@ -238,10 +247,11 @@ class GraphicsEngine:
         # 画像がある場合は先に描画
         img_h_offset = 0
         if node.image_data and node.id in self.image_cache:
-            photo = self.image_cache[node.id]
+            photo, _ = self.image_cache[node.id]
             img_h = photo.height()
             # 画像をテキストの上に描画
-            img_id = self.canvas.create_image(x, y - h/2 + 10 + img_h/2, image=photo, tags=tags)
+            img_tags = list(tags) + ["node_image"]
+            img_id = self.canvas.create_image(x, y - h/2 + 10 + img_h/2, image=photo, tags=tuple(img_tags))
             self.image_items[node.id] = img_id
             img_h_offset = img_h + IMAGE_SPACING
 
