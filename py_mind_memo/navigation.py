@@ -32,15 +32,9 @@ class KeyboardNavigator:
             if not siblings: siblings = curr.parent.children
             
             if curr.parent == self.model.root:
-                def get_y_rank(node):
-                    side_siblings = [c for c in curr.parent.children if c.direction == node.direction]
-                    try:
-                        side_idx = side_siblings.index(node)
-                        point_type = side_idx % 3
-                        y_rank = 0 if point_type == 0 else (1 if point_type == 2 else 2)
-                        return (y_rank, side_idx // 3)
-                    except ValueError: return (0, 0)
-                siblings.sort(key=get_y_rank)
+                # root直下の子ノードは Y 座標でソートして視覚的な順序に合わせる
+                siblings.sort(key=lambda n: n.y)
+
             
             try:
                 idx = siblings.index(curr)

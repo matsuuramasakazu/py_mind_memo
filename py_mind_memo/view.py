@@ -336,10 +336,13 @@ class MindMapView:
         self._update_scroll_and_focus(w, h, force_center)
 
     def _get_canvas_size(self):
-        self.root.update_idletasks()
+        # ウィンドウサイズが確定していない初期のみ update_idletasks を呼ぶ
+        if self.first_render:
+            self.root.update_idletasks()
         w = max(100, self.canvas.winfo_width())
         h = max(100, self.canvas.winfo_height())
         return w, h
+
 
     def _update_scroll_and_focus(self, w, h, force_center=False):
         bbox = self.canvas.bbox("all")
@@ -371,9 +374,7 @@ class MindMapView:
     def ensure_node_visible(self, node: Node, force_center=False):
         """指定したノードが画面外にある場合、見える位置までスクロールする"""
         if not node or not self.canvas.cget("scrollregion"): return
-        
-        # scrollregionの変更を反映させる
-        self.canvas.update_idletasks()
+
         
         # キャンバス上の現在の表示領域を取得 (比率 0.0 to 1.0)
         vx1, vx2 = self.canvas.xview()

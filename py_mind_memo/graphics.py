@@ -161,6 +161,12 @@ class GraphicsEngine:
 
     def get_text_size(self, node: Node, base_font, max_width: int = 250):
         """マルチラインとマークアップ、自動折り返しを考慮したサイズ計算（画像分も含む）"""
+        # キャッシュチェック（テキストとフォント、画像データに変更がなければキャッシュを返す）
+        font_key = f"{base_font[0]}_{base_font[1]}"
+        cache_key = (node.text, font_key, node.image_data is not None)
+        if hasattr(node, '_size_cache') and node._size_cache_key == cache_key:
+            return node._size_cache
+
         wrapped_lines = self._wrap_rich_text(node.text, base_font, max_width)
         
         max_w = 0
@@ -186,6 +192,16 @@ class GraphicsEngine:
         family = base_font[0]
         size = base_font[1]
         
+        # フォントオブジェクトのキャッシュ
+        font_objs = {}
+        def get_font_metrics(style):
+            if style not in font_objs:
+                f = tkfont.Font(family=family, size=size, 
+                               weight="bold" if "bold" in style else "normal", 
+                               slant="italic" if "italic" in style else "roman")
+                font_objs[style] = f
+            return font_objs[style]
+
         for line_segments in wrapped_lines:
             line_w = 0
             line_max_h = 0
@@ -195,19 +211,20 @@ class GraphicsEngine:
                 continue
 
             for txt, style, underline, color in line_segments:
-                font = (family, size, style) if style != "normal" else (family, size)
-                # 高さと幅の計算
-                temp_id = self.canvas.create_text(0, 0, text=txt, font=font)
-                bbox = self.canvas.bbox(temp_id)
-                self.canvas.delete(temp_id)
-                if bbox:
-                    line_w += (bbox[2] - bbox[0])
-                    line_max_h = max(line_max_h, bbox[3] - bbox[1])
+                f_obj = get_font_metrics(style)
+                line_w += f_obj.measure(txt)
+                # フォントの高さ（アセント+ディセント）をベースにする
+                line_max_h = max(line_max_h, f_obj.metrics("linespace"))
             
             max_w = max(max_w, line_w)
             total_h += (line_max_h if line_max_h > 0 else size + 10)
             
-        return max(100, max(max_w + 20, img_w + 20)), max(35, total_h + 12 + img_h)
+        result = max(100, max(max_w + 20, img_w + 20)), max(35, total_h + 12 + img_h)
+        # キャッシュに保存
+        node._size_cache = result
+        node._size_cache_key = cache_key
+        return result
+
 
     def _draw_rich_text(self, x, y, node, base_font, tags):
         """リッチテキストを自動折り返しを考慮して描画する（画像対応）"""
