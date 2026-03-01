@@ -12,7 +12,6 @@ code_review:
     - "package-lock.json"
     - "images/**"
     - "__pycache__/**"
-    - "dist/**"
     - "build/**"
     - "**/*.min.js"
 
