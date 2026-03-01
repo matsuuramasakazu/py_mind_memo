@@ -2,6 +2,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 import base64
 import re
+import hashlib
 from typing import Dict
 from .models import Node, Reference
 from .constants import (
@@ -165,8 +166,11 @@ class GraphicsEngine:
         """マルチラインとマークアップ、自動折り返しを考慮したサイズ計算（画像分も含む）"""
         # キャッシュチェック（テキストとフォント、画像データに変更がなければキャッシュを返す）
         font_key = f"{base_font[0]}_{base_font[1]}"
-        # image_data 自体をキーに含めると重いため、長さとデータの最初/最後の10文字をサンプリング
-        image_key = f"{len(node.image_data)}_{node.image_data[:10]}_{node.image_data[-10:]}" if node.image_data else None
+        # image_data 自体をキーに含めると重いため、blake2b でハッシュ化して衝突を防ぐ
+        image_key = (
+            hashlib.blake2b(node.image_data.encode("utf-8"), digest_size=12).hexdigest()
+            if node.image_data else None
+        )
         cache_key = (node.text, font_key, image_key)
         if hasattr(node, '_size_cache') and node._size_cache_key == cache_key:
             return node._size_cache
