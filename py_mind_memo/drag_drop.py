@@ -83,63 +83,43 @@ class DragDropHandler:
         if self.drag_data.get("shadow_target_id") == target_node.id: return
         self.hide_move_shadow()
         
-        base_x, base_y = target_node.x, target_node.y
-        old_parent = dragged_node.parent
-        old_index = old_parent.children.index(dragged_node) if old_parent else -1
-        old_direction = dragged_node.direction
+        h_margin = getattr(self.layout_engine, 'h_margin', 80)
+        spacing_y = getattr(self.layout_engine, 'spacing_y', 30)
+
+        if target_node == self.model.root:
+            direction = self.model.get_balanced_direction(exclude_node=dragged_node)
+        else:
+            direction = target_node.direction
+
+        if direction == 'left':
+            sx = target_node.x - target_node.width/2 - h_margin - dragged_node.width/2
+        else:
+            sx = target_node.x + target_node.width/2 + h_margin + dragged_node.width/2
+
+        if target_node.children and not target_node.collapsed:
+            last_child = max(target_node.children, key=lambda c: c.y)
+            child_sh = getattr(last_child, 'subtree_height', last_child.height)
+            dragged_sh = getattr(dragged_node, 'subtree_height', dragged_node.height)
+            sy = last_child.y + child_sh/2 + spacing_y + dragged_sh/2
+        else:
+            sy = target_node.y
+
+        sw, sh = dragged_node.width, dragged_node.height
+        shadow_id = self.canvas.create_rectangle(
+            sx - sw/2, sy - sh/2, sx + sw/2, sy + sh/2,
+            fill="#e0e0e0", outline="#cccccc", tags="move_shadow"
+        )
+        self.canvas.lower(shadow_id)
         
-        try:
-            if old_parent: old_parent.children.remove(dragged_node)
-            dragged_node.parent = target_node
-            target_node.children.append(dragged_node)
-            
-            if target_node == self.model.root:
-                dragged_node.direction = self.model.get_balanced_direction(exclude_node=dragged_node)
-            else:
-                dragged_node.direction = target_node.direction
-            
-            if target_node.collapsed:
-                # 親が折りたたまれている場合は手動で座標を計算
-                margin = 30
-                if dragged_node.direction == 'left':
-                    dragged_node.x = target_node.x - target_node.width/2 - margin - dragged_node.width/2
-                else:
-                    dragged_node.x = target_node.x + target_node.width/2 + margin + dragged_node.width/2
-                dragged_node.y = target_node.y
-            else:
-                # 通常のレイアウト計算
-                dragged_node.update_direction_recursive(dragged_node.direction)
-                self.layout_engine.calculate_subtree_height(self.model.root, self.graphics)
-                self.layout_engine.apply_layout(self.model, self.graphics, self.logical_center_x, self.logical_center_y)
-            
-            sx, sy = base_x + (dragged_node.x - target_node.x), base_y + (dragged_node.y - target_node.y)
-            sw, sh = dragged_node.width, dragged_node.height
-            shadow_id = self.canvas.create_rectangle(
-                sx - sw/2, sy - sh/2, sx + sw/2, sy + sh/2,
-                fill="#e0e0e0", outline="#cccccc", tags="move_shadow"
-            )
-            self.canvas.lower(shadow_id)
-            
-            # 接続線の影
-            tmp_x, tmp_y = dragged_node.x, dragged_node.y
-            dragged_node.x, dragged_node.y = sx, sy
-            target_tmp_x, target_tmp_y = target_node.x, target_node.y
-            target_node.x, target_node.y = base_x, base_y
-            
-            self.graphics.draw_move_shadow_connection(target_node, dragged_node)
-            
-            dragged_node.x, dragged_node.y = tmp_x, tmp_y
-            target_node.x, target_node.y = target_tmp_x, target_tmp_y
-            self.drag_data["shadow_target_id"] = target_node.id
-        finally:
-            if dragged_node in target_node.children: target_node.children.remove(dragged_node)
-            dragged_node.parent = old_parent
-            if old_parent and dragged_node not in old_parent.children:
-                old_parent.children.insert(old_index, dragged_node)
-            dragged_node.direction = old_direction
-            dragged_node.update_direction_recursive(old_direction)
-            self.layout_engine.calculate_subtree_height(self.model.root, self.graphics)
-            self.layout_engine.apply_layout(self.model, self.graphics, self.logical_center_x, self.logical_center_y)
+        shadow_pos_node = Node("")
+        shadow_pos_node.x, shadow_pos_node.y = sx, sy
+        shadow_pos_node.width, shadow_pos_node.height = sw, sh
+        shadow_pos_node.direction = direction
+        shadow_pos_node.parent = target_node
+        
+        self.graphics.draw_move_shadow_connection(target_node, shadow_pos_node)
+        
+        self.drag_data["shadow_target_id"] = target_node.id
 
     def hide_move_shadow(self):
         self.canvas.delete("move_shadow")
