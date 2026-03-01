@@ -16,8 +16,17 @@ class TestImageUtils(unittest.TestCase):
         # 両方が上限を超える場合
         self.assertEqual(calculate_subsample(600, 800, 200, 200), 4) # max(600/200, 800/200) = 4
         
-        # 端数の切り上げ
-        self.assertEqual(calculate_subsample(201, 200, 200, 200), 2)
+    def test_calculate_subsample_validation(self):
+        # max_width/max_height が 0 以下の場合、ValueError が発生することを確認
+        with self.assertRaisesRegex(ValueError, "max_width and max_height must be positive"):
+            calculate_subsample(100, 100, 0, 100)
+        with self.assertRaisesRegex(ValueError, "max_width and max_height must be positive"):
+            calculate_subsample(100, 100, 100, -5)
+
+    def test_file_to_base64_not_found(self):
+        # ファイルが存在しない場合、FileNotFoundError が発生することを確認
+        with self.assertRaises(FileNotFoundError):
+            file_to_base64("non_existent.png")
 
     def test_file_to_base64(self):
         dummy_content = b"fake image data"

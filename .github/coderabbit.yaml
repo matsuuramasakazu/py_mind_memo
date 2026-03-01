@@ -1,0 +1,20 @@
+# .github/coderabbit.yaml
+reviews:
+  language: "ja"
+  auto_review:
+    enabled: true
+    # 自動レビューの対象ブランチ
+    base_branches: ["main"]
+    # Draft PRを自動レビューしない
+    ignore_draft_pr: true
+    # ドキュメントの変更は無視
+    ignore_documentation_changes: true
+    # レビュー対象外のファイル
+    path_filters:
+      - "!bin/**"
+      - "!docs/**"
+      - "!dist/**"
+      - "!package-lock.json"
+      - "!images/**"
+      - "!__pycache__/**"
+      - "!build/**"

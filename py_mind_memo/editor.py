@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import base64
-import io
 from .models import Node
 from .graphics import GraphicsEngine
 from .image_utils import calculate_subsample, load_image_as_base64
@@ -115,8 +114,9 @@ class NodeEditor:
                 photo = self.image_handler.get_photo_from_base64(node.image_data)
                 entry.image_create("1.0", image=photo)
                 entry.insert("end", "\n")
-            except ValueError:
-                # 画像のデコード失敗時は無視してテキスト編集を継続
+            except ValueError as e:
+                # 画像のデコード失敗時はエラー内容をコンソールに出力して継続
+                print(f"Warning: {e}")
                 pass
 
         entry.insert("end", node.text)
@@ -191,11 +191,11 @@ class NodeEditor:
             
         return "break"
 
-    def finish_edit(self, node: Node = None):
+    def finish_edit(self):
         if self.finishing or not self.editing_entry:
             return "break"
         
-        target_node = node if node else self.editing_node
+        target_node = self.editing_node
         if not target_node:
             return "break"
             
@@ -212,7 +212,8 @@ class NodeEditor:
             target_node.image_path = None
             self.model.is_modified = True
             # 画像が削除された場合、画像表示用に挿入された先頭の改行を削除
-            if new_text.startswith('\n'):
+            # ただし、元々のテキストが改行で始まっていなかった場合のみ削除する
+            if new_text.startswith('\n') and not target_node.text.startswith('\n'):
                 new_text = new_text[1:]
 
         if new_text is not None and new_text != target_node.text:
