@@ -20,7 +20,7 @@ code_review:
   ignore_documentation_changes: true
 
 # 自動レビューの対象ブランチ（例: main）
-# auto_review:
+auto_review:
   base_branches: ["main"]
 
 # Draft PRを自動レビューしない
