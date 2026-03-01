@@ -1,26 +1,24 @@
 # .github/coderabbit.yaml
-language: ja # 日本語でレビュー
-code_review:
-  # 厳しいレビューにしたい場合
-  # tone: "assertive" 
+reviews:
+  language: ja # 日本語でレビュー
   
-  # レビュー対象外のファイル
-  path_filters:
-    - "bin/**"
-    - "docs/**"
-    - "dist/**"
-    - "package-lock.json"
-    - "images/**"
-    - "__pycache__/**"
-    - "build/**"
-    - "**/*.min.js"
-
+  # Draft PRを自動レビューしない
+  ignore_draft_pr: true
+  
   # ドキュメントの変更は無視
   ignore_documentation_changes: true
 
-# 自動レビューの対象ブランチ（例: main）
-auto_review:
-  base_branches: ["main"]
+  auto_review:
+    enabled: true
+    # 自動レビューの対象ブランチ
+    base_branches: ["main"]
 
-# Draft PRを自動レビューしない
-ignore_draft_pr: true
+    # レビュー対象外のファイル
+    path_filters:
+      - "bin/**"
+      - "docs/**"
+      - "dist/**"
+      - "package-lock.json"
+      - "images/**"
+      - "__pycache__/**"
+      - "build/**"

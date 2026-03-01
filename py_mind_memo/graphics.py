@@ -1,6 +1,7 @@
 import tkinter as tk
 import tkinter.font as tkfont
 import base64
+import re
 from typing import Dict
 from .models import Node, Reference
 from .constants import (
@@ -12,6 +13,10 @@ from .constants import (
 
 class GraphicsEngine:
     """tkinter.Canvas上での描画を管理するクラス"""
+    
+    # マークアップ解析用の正規表現パターン（再コンパイルを防ぐためクラス定数化）
+    MARKUP_PATTERN = re.compile(r'(<br/?>|<b>|</b>|<i>|</i>|<u>|</u>|<c:#[0-9a-fA-F]{6}>|</c>)')
+
     def __init__(self, canvas: tk.Canvas):
         self.canvas = canvas
         self.node_items: Dict[str, list] = {}  # node_id -> list of item ids
@@ -57,13 +62,10 @@ class GraphicsEngine:
 
     def _parse_markup(self, text: str):
         """
-        マークアップを解析してセグメントのリストを返す。
+        マークアップ解析してセグメントのリストを返す。
         セグメントは (text, font_style, underline, color) のリスト。
         """
-        import re
-        # タグの分割用正規表現
-        pattern = re.compile(r'(<br/?>|<b>|</b>|<i>|</i>|<u>|</u>|<c:#[0-9a-fA-F]{6}>|</c>)')
-        parts = pattern.split(text)
+        parts = self.MARKUP_PATTERN.split(text)
         
         segments = []
         current_bold = False
@@ -163,9 +165,8 @@ class GraphicsEngine:
         """マルチラインとマークアップ、自動折り返しを考慮したサイズ計算（画像分も含む）"""
         # キャッシュチェック（テキストとフォント、画像データに変更がなければキャッシュを返す）
         font_key = f"{base_font[0]}_{base_font[1]}"
-        # image_data 自体をキーに含めると重いため、長さやNoneチェックで判定
-        # 本来はハッシュ値が良いが、まずは単純な変更検知を行う
-        image_key = hash(node.image_data) if node.image_data else None
+        # image_data 自体をキーに含めると重いため、長さとデータの最初/最後の10文字をサンプリング
+        image_key = f"{len(node.image_data)}_{node.image_data[:10]}_{node.image_data[-10:]}" if node.image_data else None
         cache_key = (node.text, font_key, image_key)
         if hasattr(node, '_size_cache') and node._size_cache_key == cache_key:
             return node._size_cache
@@ -431,7 +432,8 @@ class GraphicsEngine:
         中心から (dx, dy) 方向ベクトルが矩形の辺と交わる点。
         dx=dy=0 の場合は中心をそのまま返す。
         """
-        if dx == 0 and dy == 0:
+        # 極端に小さい値による浮動小数点誤差を考慮 (epsilon = 1e-9)
+        if abs(dx) < 1e-9 and abs(dy) < 1e-9:
             return cx, cy
 
         t_candidates = []

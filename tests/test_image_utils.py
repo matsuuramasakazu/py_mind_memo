@@ -19,7 +19,8 @@ class TestImageUtils(unittest.TestCase):
         # 端数の切り上げ
         self.assertEqual(calculate_subsample(201, 200, 200, 200), 2)
 
-    def test_file_to_base64(self):
+    @patch("os.path.exists", return_value=True)
+    def test_file_to_base64(self, mock_exists):
         dummy_content = b"fake image data"
         expected_base64 = base64.b64encode(dummy_content).decode('utf-8')
         

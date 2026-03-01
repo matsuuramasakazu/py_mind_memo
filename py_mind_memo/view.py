@@ -128,9 +128,7 @@ class MindMapView:
                     self.render()
                 return "break"
             
-            # 通常モードの座標取得
-            cx = self.canvas.canvasx(event.x)
-            cy = self.canvas.canvasy(event.y)
+            # 通常モードの座標取得（既に cx, cy を取得済みのため再利用）
 
             # 画像クリックの判定を最優先にする
             items = self.canvas.find_overlapping(cx-2, cy-2, cx+2, cy+2)
@@ -534,12 +532,9 @@ class MindMapView:
 
     def _show_enlarged_image(self, node: Node):
         """元の画像を拡大表示ウィンドウで表示する"""
-        if not node.image_path or not os.path.exists(node.image_path):
-            messagebox.showerror("Error", f"Original image file not found:\n{node.image_path}")
-            return
-
         try:
             # 画像の読み込み（サイズ取得のために先に読み込む）
+            # ファイル存在チェックとオープンの間の時間差によるエラーを防ぐため try-except 内で行う
             photo = tk.PhotoImage(file=node.image_path)
             img_w = photo.width()
             img_h = photo.height()
