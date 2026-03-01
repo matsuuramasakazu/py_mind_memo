@@ -1,5 +1,3 @@
-from .models import Node
-
 class KeyboardNavigator:
     """キーボードによるノード間移動を管理するクラス"""
     def __init__(self, model, render_callback):

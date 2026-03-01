@@ -1,7 +1,7 @@
 import tkinter as tk
 import tkinter.font as tkfont
 import base64
-from typing import Dict, Optional
+from typing import Dict
 from .models import Node, Reference
 from .constants import (
     COLOR_TEXT, COLOR_ROOT_OUTLINE, COLOR_ROOT_FILL,

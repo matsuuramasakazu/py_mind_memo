@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import base64
-import io
 from .models import Node
 from .graphics import GraphicsEngine
 from .image_utils import calculate_subsample, load_image_as_base64

@@ -1,5 +1,4 @@
 import base64
-import tkinter as tk
 
 from .constants import MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT
 

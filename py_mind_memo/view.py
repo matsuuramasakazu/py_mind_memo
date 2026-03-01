@@ -2,7 +2,6 @@ import tkinter as tk
 import os
 from .models import MindMapModel, Node, Reference
 from .graphics import GraphicsEngine
-from .graphics import GraphicsEngine
 from .layout import LayoutEngine
 from .editor import NodeEditor
 from .drag_drop import DragDropHandler

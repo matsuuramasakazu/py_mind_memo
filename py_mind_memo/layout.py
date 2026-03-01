@@ -1,4 +1,3 @@
-import math
 from typing import List, Tuple
 from .models import Node, MindMapModel
 
