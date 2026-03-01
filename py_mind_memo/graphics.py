@@ -15,7 +15,7 @@ from .constants import (
 class GraphicsEngine:
     """tkinter.Canvas上での描画を管理するクラス"""
     
-    # マークアップ解析用の正規表現パターン（再コンパイルを防ぐためクラス定数化）
+    # マークアップ解析用の正規表現パターン (再コンパイルを防ぐためクラス定数化)
     MARKUP_PATTERN = re.compile(r'(<br/?>|<b>|</b>|<i>|</i>|<u>|</u>|<c:#[0-9a-fA-F]{6}>|</c>)')
 
     def __init__(self, canvas: tk.Canvas):

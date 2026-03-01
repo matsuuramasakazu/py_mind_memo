@@ -28,8 +28,7 @@ class TestImageUtils(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             file_to_base64("non_existent.png")
 
-    @patch("os.path.exists", return_value=True)
-    def test_file_to_base64(self, mock_exists):
+    def test_file_to_base64(self):
         dummy_content = b"fake image data"
         expected_base64 = base64.b64encode(dummy_content).decode('utf-8')
         
