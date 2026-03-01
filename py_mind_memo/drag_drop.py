@@ -83,8 +83,8 @@ class DragDropHandler:
         if self.drag_data.get("shadow_target_id") == target_node.id: return
         self.hide_move_shadow()
         
-        h_margin = self.layout_engine.h_margin if hasattr(self.layout_engine, 'h_margin') else 80
-        spacing_y = self.layout_engine.spacing_y if hasattr(self.layout_engine, 'spacing_y') else 30
+        h_margin = getattr(self.layout_engine, 'h_margin', 80)
+        spacing_y = getattr(self.layout_engine, 'spacing_y', 30)
 
         if target_node == self.model.root:
             direction = self.model.get_balanced_direction(exclude_node=dragged_node)
@@ -104,9 +104,6 @@ class DragDropHandler:
         else:
             sy = target_node.y
 
-        temp_dir = dragged_node.direction
-        dragged_node.direction = direction
-
         sw, sh = dragged_node.width, dragged_node.height
         shadow_id = self.canvas.create_rectangle(
             sx - sw/2, sy - sh/2, sx + sw/2, sy + sh/2,
@@ -114,13 +111,13 @@ class DragDropHandler:
         )
         self.canvas.lower(shadow_id)
         
-        tmp_x, tmp_y = dragged_node.x, dragged_node.y
-        dragged_node.x, dragged_node.y = sx, sy
+        shadow_pos_node = Node("")
+        shadow_pos_node.x, shadow_pos_node.y = sx, sy
+        shadow_pos_node.width, shadow_pos_node.height = sw, sh
+        shadow_pos_node.direction = direction
+        shadow_pos_node.parent = target_node
         
-        self.graphics.draw_move_shadow_connection(target_node, dragged_node)
-        
-        dragged_node.x, dragged_node.y = tmp_x, tmp_y
-        dragged_node.direction = temp_dir
+        self.graphics.draw_move_shadow_connection(target_node, shadow_pos_node)
         
         self.drag_data["shadow_target_id"] = target_node.id
 
