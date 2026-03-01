@@ -124,6 +124,88 @@ class LayoutEngine:
             left_x = center_x - root_half_w - self.h_margin - max_hw
             self._layout_root_children(left_nodes, left_x, center_y, 'left')
 
+    def get_simulated_root_drop_position(self, root: Node, new_node: Node) -> Tuple[float, float, str]:
+        """root直下へのドロップ時のシミュレーション座標を移動前の状態で計算する"""
+        old_children = [c for c in root.children if c != new_node]
+        n_new = len(old_children) + 1
+        new_angles = compute_root_child_angles(n_new)
+        
+        new_angle = new_angles[-1]
+        new_direction = 'right' if new_angle <= 180.0 else 'left'
+        
+        group_pairs = []
+        for child, angle in zip(old_children, new_angles[:-1]):
+            group_dir = 'right' if angle <= 180.0 else 'left'
+            if group_dir == new_direction:
+                group_pairs.append((angle, child))
+        group_pairs.append((new_angle, new_node))
+        
+        if new_direction == 'right':
+            group_pairs.sort(key=lambda t: t[0])
+        else:
+            group_pairs.sort(key=lambda t: t[0], reverse=True)
+            
+        group_nodes = [node for _, node in group_pairs]
+        new_node_idx = group_nodes.index(new_node)
+        
+        node_above = None
+        for i in range(new_node_idx - 1, -1, -1):
+            n = group_nodes[i]
+            if getattr(n, 'direction', None) == new_direction:
+                node_above = n
+                break
+                
+        node_below = None
+        for i in range(new_node_idx + 1, len(group_nodes)):
+            n = group_nodes[i]
+            if getattr(n, 'direction', None) == new_direction:
+                node_below = n
+                break
+
+        new_h = getattr(new_node, 'subtree_height', new_node.height)
+        
+        if node_above:
+            ref_y = node_above.y
+            ref_h = getattr(node_above, 'subtree_height', node_above.height)
+            target_y = ref_y + ref_h / 2 + self.spacing_y + new_h / 2
+        elif node_below:
+            ref_y = node_below.y
+            ref_h = getattr(node_below, 'subtree_height', node_below.height)
+            target_y = ref_y - ref_h / 2 - self.spacing_y - new_h / 2
+        else:
+            target_y = root.y
+            
+        root_half_w = root.width / 2 + 12
+        max_hw = getattr(new_node, 'width', 0) / 2
+        old_nodes_on_side = [c for c in old_children if getattr(c, 'direction', None) == new_direction]
+        if old_nodes_on_side:
+            max_hw = max(max_hw, max(getattr(n, 'width', 0) / 2 for n in old_nodes_on_side))
+            
+        if new_direction == 'right':
+            target_x = root.x + root_half_w + self.h_margin + max_hw
+        else:
+            target_x = root.x - root_half_w - self.h_margin - max_hw
+            
+        return target_x, target_y, new_direction
+
+    def get_simulated_child_drop_position(self, target_node: Node, new_node: Node) -> Tuple[float, float, str]:
+        """root以外の子ノードへのドロップ時のシミュレーション座標を計算する"""
+        direction = target_node.direction
+        if direction == 'left':
+            target_x = target_node.x - target_node.width/2 - self.h_margin - new_node.width/2
+        else:
+            target_x = target_node.x + target_node.width/2 + self.h_margin + new_node.width/2
+
+        if target_node.children and not target_node.collapsed:
+            last_child = max(target_node.children, key=lambda c: c.y)
+            child_sh = getattr(last_child, 'subtree_height', last_child.height)
+            dragged_sh = getattr(new_node, 'subtree_height', new_node.height)
+            target_y = last_child.y + child_sh/2 + self.spacing_y + dragged_sh/2
+        else:
+            target_y = target_node.y
+
+        return target_x, target_y, direction
+
     # ──────────────────────────────────────────────────────────────
     # root 直下子ノードの縦方向配置
     # ──────────────────────────────────────────────────────────────

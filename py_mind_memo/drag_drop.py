@@ -83,26 +83,10 @@ class DragDropHandler:
         if self.drag_data.get("shadow_target_id") == target_node.id: return
         self.hide_move_shadow()
         
-        h_margin = getattr(self.layout_engine, 'h_margin', 80)
-        spacing_y = getattr(self.layout_engine, 'spacing_y', 30)
-
         if target_node == self.model.root:
-            direction = self.model.get_balanced_direction(exclude_node=dragged_node)
+            sx, sy, direction = self.layout_engine.get_simulated_root_drop_position(target_node, dragged_node)
         else:
-            direction = target_node.direction
-
-        if direction == 'left':
-            sx = target_node.x - target_node.width/2 - h_margin - dragged_node.width/2
-        else:
-            sx = target_node.x + target_node.width/2 + h_margin + dragged_node.width/2
-
-        if target_node.children and not target_node.collapsed:
-            last_child = max(target_node.children, key=lambda c: c.y)
-            child_sh = getattr(last_child, 'subtree_height', last_child.height)
-            dragged_sh = getattr(dragged_node, 'subtree_height', dragged_node.height)
-            sy = last_child.y + child_sh/2 + spacing_y + dragged_sh/2
-        else:
-            sy = target_node.y
+            sx, sy, direction = self.layout_engine.get_simulated_child_drop_position(target_node, dragged_node)
 
         sw, sh = dragged_node.width, dragged_node.height
         shadow_id = self.canvas.create_rectangle(
