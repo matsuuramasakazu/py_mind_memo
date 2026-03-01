@@ -133,11 +133,11 @@ class LayoutEngine:
         new_angle = new_angles[-1]
         new_direction = 'right' if new_angle <= 180.0 else 'left'
         
-        group_pairs = []
-        for child, angle in zip(old_children, new_angles[:-1]):
-            group_dir = 'right' if angle <= 180.0 else 'left'
-            if group_dir == new_direction:
-                group_pairs.append((angle, child))
+        group_pairs = [
+            (angle, child)
+            for child, angle in zip(old_children, new_angles[:-1])
+            if ('right' if angle <= 180.0 else 'left') == new_direction
+        ]
         group_pairs.append((new_angle, new_node))
         
         if new_direction == 'right':
@@ -175,11 +175,8 @@ class LayoutEngine:
         else:
             target_y = root.y
             
+        max_hw = max((getattr(n, 'width', 0) / 2 for n in group_nodes), default=0)
         root_half_w = root.width / 2 + 12
-        max_hw = getattr(new_node, 'width', 0) / 2
-        old_nodes_on_side = [c for c in old_children if getattr(c, 'direction', None) == new_direction]
-        if old_nodes_on_side:
-            max_hw = max(max_hw, max(getattr(n, 'width', 0) / 2 for n in old_nodes_on_side))
             
         if new_direction == 'right':
             target_x = root.x + root_half_w + self.h_margin + max_hw
