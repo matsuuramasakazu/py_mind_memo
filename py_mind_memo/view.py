@@ -485,21 +485,18 @@ class MindMapView:
             self.selected_node = parent
             self.render()
 
-    def on_move_node_up(self, event):
-        if self.editor.is_editing(): return
+    def _on_move_node(self, move_func):
         if self.selected_node:
-            if self.model.move_node_up(self.selected_node):
+            if move_func(self.selected_node):
                 self.render()
                 self.ensure_node_visible(self.selected_node)
         return "break"
 
+    def on_move_node_up(self, event):
+        return self._on_move_node(self.model.move_node_up)
+
     def on_move_node_down(self, event):
-        if self.editor.is_editing(): return
-        if self.selected_node:
-            if self.model.move_node_down(self.selected_node):
-                self.render()
-                self.ensure_node_visible(self.selected_node)
-        return "break"
+        return self._on_move_node(self.model.move_node_down)
 
     def on_toggle_reference_mode(self, event):
         if self.editor.is_editing(): return
