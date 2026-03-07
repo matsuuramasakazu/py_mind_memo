@@ -630,9 +630,42 @@ class GraphicsEngine:
             
         self.reference_items[ref.id] = items
 
+    def draw_temporary_reference(self, source_node: Node, target_x: float, target_y: float):
+        self.clear_temporary_reference()
+        
+        source_y_center = source_node.y
+        target_y_center = target_y
+        
+        if source_y_center >= target_y_center:
+            # 接続元が下、接続先(マウス)が上 -> 接続元上辺から
+            sy = source_node.y - source_node.height / 2
+            ty = target_y
+        else:
+            # 接続元が上、接続先(マウス)が下 -> 接続元下辺から
+            sy = source_node.y + source_node.height / 2
+            ty = target_y
+            
+        sx = source_node.x
+        tx = target_x
+        
+        # 制御点の計算
+        cp1x, cp1y = sx, sy + (ty - sy) * 0.3
+        cp2x, cp2y = tx, ty - (ty - sy) * 0.3
+            
+        # 参照線の描画
+        self.canvas.create_line(
+            sx, sy, cp1x, cp1y, cp2x, cp2y, tx, ty,
+            smooth=True, dash=(8, 4), arrow=tk.LAST,
+            fill="gray", width=2, tags="temp_reference"
+        )
+
+    def clear_temporary_reference(self):
+        self.canvas.delete("temp_reference")
+
     def clear(self):
         self.canvas.delete("all")
         self.node_items.clear()
         self.text_items.clear()
         self.line_items.clear()
         self.reference_items.clear()
+

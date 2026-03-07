@@ -91,6 +91,7 @@ class MindMapView:
         self.canvas.bind("<Double-Button-1>", self._on_canvas_double_click)
         self.canvas.bind("<B1-Motion>", self._on_motion)
         self.canvas.bind("<ButtonRelease-1>", self._on_release)
+        self.canvas.bind("<Motion>", self._on_hover_motion)
 
     def on_mouse_wheel(self, event):
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
@@ -150,6 +151,13 @@ class MindMapView:
                     self.model.references.append(ref)
                     self.model.is_modified = True
                 
+                self.graphics.clear_temporary_reference()
+                self.reference_edit_mode = False
+                self.reference_source_node = None
+                self.root.title("py_mind_memo - Mindmap like Tool")
+                self.canvas.config(cursor="")
+            else:
+                self.graphics.clear_temporary_reference()
                 self.reference_edit_mode = False
                 self.reference_source_node = None
                 self.root.title("py_mind_memo - Mindmap like Tool")
@@ -300,6 +308,13 @@ class MindMapView:
             self.selected_handle = None
         else:
             self.drag_handler.handle_drop(event)
+
+    def _on_hover_motion(self, event):
+        """マウスホバー時の処理。参照モードでの一時線描画等を行う"""
+        if self.reference_edit_mode and self.reference_source_node:
+            cx = self.canvas.canvasx(event.x)
+            cy = self.canvas.canvasy(event.y)
+            self.graphics.draw_temporary_reference(self.reference_source_node, cx, cy)
 
     def _on_canvas_double_click(self, event):
         """ダブルクリックで編集モードを開始"""
@@ -536,6 +551,7 @@ class MindMapView:
         if self.editor.is_editing(): return
         self.reference_edit_mode = not self.reference_edit_mode
         if not self.reference_edit_mode:
+            self.graphics.clear_temporary_reference()
             self.reference_source_node = None
             self.root.title("py_mind_memo - Mindmap like Tool")
             self.canvas.config(cursor="")
