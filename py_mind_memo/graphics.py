@@ -633,17 +633,13 @@ class GraphicsEngine:
     def draw_temporary_reference(self, source_node: Node, target_x: float, target_y: float):
         self.clear_temporary_reference()
         
-        source_y_center = source_node.y
-        target_y_center = target_y
-        
-        if source_y_center >= target_y_center:
+        ty = target_y
+        if source_node.y >= target_y:
             # 接続元が下、接続先(マウス)が上 -> 接続元上辺から
             sy = source_node.y - source_node.height / 2
-            ty = target_y
         else:
             # 接続元が上、接続先(マウス)が下 -> 接続元下辺から
             sy = source_node.y + source_node.height / 2
-            ty = target_y
             
         sx = source_node.x
         tx = target_x
