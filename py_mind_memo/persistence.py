@@ -45,7 +45,7 @@ class PersistenceHandler:
             self.current_file_path = file_path
             self.model.is_modified = False
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to save: {e}")
+            messagebox.showerror("Error", f"Failed to save to {file_path}: {e}")
 
     def on_open(self, event=None):
         file_path = filedialog.askopenfilename(
@@ -60,4 +60,4 @@ class PersistenceHandler:
                 self.current_file_path = file_path
                 self.render_callback(root_node=self.model.root)
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to load: {e}")
+                messagebox.showerror("Error", f"Failed to load from {file_path}: {e}")
