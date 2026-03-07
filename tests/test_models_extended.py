@@ -76,5 +76,55 @@ class TestModelsExtended(unittest.TestCase):
         self.assertEqual(restored_child.image_data, "dummy_base64")
         self.assertTrue(restored_child.collapsed)
 
+    def test_move_node_up(self):
+        root = self.model.root
+        parent = self.model.add_node(root, "Parent")
+        child1 = self.model.add_node(parent, "Child1")
+        child2 = self.model.add_node(parent, "Child2")
+        child3 = self.model.add_node(parent, "Child3")
+        
+        self.model.is_modified = False
+        
+        # move child2 up (to position 0)
+        success = self.model.move_node_up(child2)
+        self.assertTrue(success)
+        self.assertTrue(self.model.is_modified)
+        self.assertEqual(parent.children, [child2, child1, child3])
+        
+        # moving child2 up again should fail (already at top)
+        self.model.is_modified = False
+        success = self.model.move_node_up(child2)
+        self.assertFalse(success)
+        self.assertFalse(self.model.is_modified)
+        self.assertEqual(parent.children, [child2, child1, child3])
+        
+        # root has no parent, should fail
+        self.assertFalse(self.model.move_node_up(root))
+
+    def test_move_node_down(self):
+        root = self.model.root
+        parent = self.model.add_node(root, "Parent")
+        child1 = self.model.add_node(parent, "Child1")
+        child2 = self.model.add_node(parent, "Child2")
+        child3 = self.model.add_node(parent, "Child3")
+        
+        self.model.is_modified = False
+        
+        # move child2 down (to position 2)
+        success = self.model.move_node_down(child2)
+        self.assertTrue(success)
+        self.assertTrue(self.model.is_modified)
+        self.assertEqual(parent.children, [child1, child3, child2])
+        
+        # moving child2 down again should fail (already at bottom)
+        self.model.is_modified = False
+        success = self.model.move_node_down(child2)
+        self.assertFalse(success)
+        self.assertFalse(self.model.is_modified)
+        self.assertEqual(parent.children, [child1, child3, child2])
+        
+        # root has no parent, should fail
+        self.assertFalse(self.model.move_node_down(root))
+
 if __name__ == '__main__':
     unittest.main()

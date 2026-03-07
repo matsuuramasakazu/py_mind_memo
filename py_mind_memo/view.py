@@ -76,6 +76,8 @@ class MindMapView:
         bind_key("<Down>", lambda e: self._navigate("down"))
         bind_key("<Left>", lambda e: self._navigate("left"))
         bind_key("<Right>", lambda e: self._navigate("right"))
+        bind_key("<Control-Up>", self.on_move_node_up)
+        bind_key("<Control-Down>", self.on_move_node_down)
         
         # マウスホイール
         self.canvas.bind("<MouseWheel>", self.on_mouse_wheel)
@@ -482,6 +484,22 @@ class MindMapView:
             self.model.is_modified = True
             self.selected_node = parent
             self.render()
+
+    def on_move_node_up(self, event):
+        if self.editor.is_editing(): return
+        if self.selected_node:
+            if self.model.move_node_up(self.selected_node):
+                self.render()
+                self.ensure_node_visible(self.selected_node)
+        return "break"
+
+    def on_move_node_down(self, event):
+        if self.editor.is_editing(): return
+        if self.selected_node:
+            if self.model.move_node_down(self.selected_node):
+                self.render()
+                self.ensure_node_visible(self.selected_node)
+        return "break"
 
     def on_toggle_reference_mode(self, event):
         if self.editor.is_editing(): return
