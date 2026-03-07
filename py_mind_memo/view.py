@@ -150,20 +150,19 @@ class MindMapView:
                     ref = Reference(self.reference_source_node.id, clicked_node.id)
                     self.model.references.append(ref)
                     self.model.is_modified = True
-                
-                self.graphics.clear_temporary_reference()
-                self.reference_edit_mode = False
-                self.reference_source_node = None
-                self.root.title("py_mind_memo - Mindmap like Tool")
-                self.canvas.config(cursor="")
-            else:
-                self.graphics.clear_temporary_reference()
-                self.reference_edit_mode = False
-                self.reference_source_node = None
-                self.root.title("py_mind_memo - Mindmap like Tool")
-                self.canvas.config(cursor="")
+            
+            self._exit_reference_mode()
         self.render()
         return True
+
+    def _exit_reference_mode(self):
+        """参照モードを終了し、UI状態を解除する"""
+        self.graphics.clear_temporary_reference()
+        self.reference_edit_mode = False
+        self.reference_source_node = None
+        self.root.title("py_mind_memo - Mindmap like Tool")
+        self.canvas.config(cursor="")
+
 
     def _handle_image_click(self, cx, cy) -> bool:
         """ノード画像のクリック判定と拡大表示処理を行う"""
@@ -551,10 +550,7 @@ class MindMapView:
         if self.editor.is_editing(): return
         self.reference_edit_mode = not self.reference_edit_mode
         if not self.reference_edit_mode:
-            self.graphics.clear_temporary_reference()
-            self.reference_source_node = None
-            self.root.title("py_mind_memo - Mindmap like Tool")
-            self.canvas.config(cursor="")
+            self._exit_reference_mode()
         else:
             self.selected_node = None
             self.selected_reference = None
