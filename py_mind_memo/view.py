@@ -100,142 +100,165 @@ class MindMapView:
 
     def _on_canvas_click(self, event):
         self.canvas.focus_set()
-        if not self.editor.is_editing():
-            
-            # 座標の取得（スクロール位置を考慮）
-            cx = self.canvas.canvasx(event.x)
-            cy = self.canvas.canvasy(event.y)
-            
-            if self.reference_edit_mode:
-                clicked_node = self.find_node_at(cx, cy)
-                if clicked_node:
-                    if self.reference_source_node is None:
-                        self.reference_source_node = clicked_node
-                        self.root.title("py_mind_memo - Mindmap like Tool [Reference Mode - Select Target]")
-                    else:
-                        if self.reference_source_node != clicked_node:
-                            # 既に同じ接続元→接続先の参照が存在するかチェック
-                            exists = any(r.source_id == self.reference_source_node.id and r.target_id == clicked_node.id for r in self.model.references)
-                            if not exists:
-                                # 新しい参照を作成
-                                ref = Reference(self.reference_source_node.id, clicked_node.id)
-                                self.model.references.append(ref)
-                                self.model.is_modified = True
-                            
-                            # 編集モード終了
-                            self.reference_edit_mode = False
-                            self.reference_source_node = None
-                            self.root.title("py_mind_memo - Mindmap like Tool")
-                            self.canvas.config(cursor="")
-                    self.render()
+        if self.editor.is_editing():
+            return
+
+        cx = self.canvas.canvasx(event.x)
+        cy = self.canvas.canvasy(event.y)
+
+        # 1. 参照モードの処理
+        if self.reference_edit_mode:
+            if self._handle_reference_mode_click(cx, cy):
                 return "break"
-            
-            # 通常モードの座標取得（既に cx, cy を取得済みのため再利用）
+            return "break"
 
-            # 画像クリックの判定を最優先にする
-            items = self.canvas.find_overlapping(cx-2, cy-2, cx+2, cy+2)
-            for item_id in reversed(items):
-                tags = self.canvas.gettags(item_id)
-                if "node_image" in tags:
-                    for t in tags:
-                        if t not in ("node_image", "text", "current", "node"):
-                            node = self.model.find_node_by_id(t)
-                            if node and node.image_path:
-                                self._show_enlarged_image(node)
-                                return "break"
-            
-            # 参照のハンドル（操作点）や線のクリック判定を優先する
-            items = self.canvas.find_overlapping(cx-4, cy-4, cx+4, cy+4)
-            clicked_ref = None
-            clicked_handle = None
-            
-            for item_id in reversed(items):
-                tags = self.canvas.gettags(item_id)
-                if "reference_handle" in tags:
-                    for t in tags:
-                        if t != "reference_handle" and t != "current" and "_" in t and "cp" in t:
-                            clicked_handle = t
-                    if clicked_handle:
-                        break
-                elif "reference" in tags and not clicked_handle:
-                    for t in tags:
-                        if t != "reference" and t != "current":
-                            ref = self.model.find_reference_by_id(t)
-                            if ref: clicked_ref = ref
+        # 2. 画像クリック（最優先）
+        if self._handle_image_click(cx, cy):
+            return "break"
 
-            if clicked_handle:
-                self.selected_handle = clicked_handle
-                if clicked_ref: self.selected_reference = clicked_ref
+        # 3. 参照ハンドル・線のクリック
+        if self._handle_reference_click(cx, cy):
+            return "break"
+
+        # 4. 折りたたみアイコンのクリック
+        if self._handle_node_collapse_click(cx, cy):
+            return "break"
+
+        # 5. 通常のノード選択/ドラッグ開始
+        clicked_node = self.find_node_at(cx, cy)
+        if clicked_node:
+            self._select_node(clicked_node)
+            self.drag_handler.start_drag(event, self.selected_node)
+        else:
+            self._deselect_all()
+
+    def _handle_reference_mode_click(self, cx, cy) -> bool:
+        clicked_node = self.find_node_at(cx, cy)
+        if not clicked_node:
+            return False
+
+        if self.reference_source_node is None:
+            self.reference_source_node = clicked_node
+            self.root.title("py_mind_memo - Mindmap like Tool [Reference Mode - Select Target]")
+        else:
+            if self.reference_source_node != clicked_node:
+                exists = any(r.source_id == self.reference_source_node.id and r.target_id == clicked_node.id 
+                           for r in self.model.references)
+                if not exists:
+                    ref = Reference(self.reference_source_node.id, clicked_node.id)
+                    self.model.references.append(ref)
+                    self.model.is_modified = True
+                
+                self.reference_edit_mode = False
+                self.reference_source_node = None
+                self.root.title("py_mind_memo - Mindmap like Tool")
+                self.canvas.config(cursor="")
+        self.render()
+        return True
+
+    def _handle_image_click(self, cx, cy) -> bool:
+        items = self.canvas.find_overlapping(cx-2, cy-2, cx+2, cy+2)
+        for item_id in reversed(items):
+            tags = self.canvas.gettags(item_id)
+            if "node_image" in tags:
+                for t in tags:
+                    if t not in ("node_image", "text", "current", "node"):
+                        node = self.model.find_node_by_id(t)
+                        if node and node.image_path:
+                            self._show_enlarged_image(node)
+                            return True
+        return False
+
+    def _handle_reference_click(self, cx, cy) -> bool:
+        items = self.canvas.find_overlapping(cx-4, cy-4, cx+4, cy+4)
+        clicked_ref = None
+        clicked_handle = None
+        
+        for item_id in reversed(items):
+            tags = self.canvas.gettags(item_id)
+            if "reference_handle" in tags:
+                for t in tags:
+                    if t != "reference_handle" and t != "current" and "_" in t and "cp" in t:
+                        clicked_handle = t
+                if clicked_handle:
+                    break
+            elif "reference" in tags and not clicked_handle:
+                for t in tags:
+                    if t != "reference" and t != "current":
+                        ref = self.model.find_reference_by_id(t)
+                        if ref: clicked_ref = ref
+
+        if clicked_handle:
+            self.selected_handle = clicked_handle
+            if clicked_ref: self.selected_reference = clicked_ref
+            self.selected_node = None
+            return True
+            
+        if clicked_ref:
+            self._select_reference(clicked_ref)
+            return True
+            
+        return False
+
+    def _handle_node_collapse_click(self, cx, cy) -> bool:
+        items = self.canvas.find_overlapping(cx-2, cy-2, cx+2, cy+2)
+        for item_id in reversed(items):
+            tags = self.canvas.gettags(item_id)
+            if "collapse_icon" in tags:
+                for t in tags:
+                    if t != "collapse_icon" and t != "current":
+                        node = self.model.find_node_by_id(t)
+                        if node:
+                            node.collapsed = not node.collapsed
+                            self.selected_node = node
+                            self.render()
+                            return True
+        return False
+
+    def _select_node(self, node):
+        if self.selected_node != node or self.selected_reference is not None:
+            old_node = self.selected_node
+            self.selected_node = node
+            
+            if old_node and old_node != self.selected_node:
+                self.graphics.draw_node(old_node, is_selected=False)
+            self.graphics.draw_node(self.selected_node, is_selected=True)
+            
+            if self.selected_reference is not None:
+                old_ref = self.selected_reference
+                self.selected_reference = None
+                self._redraw_reference(old_ref, is_selected=False)
+
+    def _select_reference(self, ref):
+        if self.selected_reference != ref or self.selected_node is not None:
+            old_ref = self.selected_reference
+            self.selected_reference = ref
+            
+            if old_ref and old_ref != self.selected_reference:
+                self._redraw_reference(old_ref, is_selected=False)
+            
+            self._redraw_reference(self.selected_reference, is_selected=True)
+            
+            if self.selected_node is not None:
+                old_node = self.selected_node
                 self.selected_node = None
-                return "break"
+                self.graphics.draw_node(old_node, is_selected=False)
 
-            clicked_node = self.find_node_at(cx, cy)
-            
-            # アイコンクリックの判定を最優先にする（ノード選択状態の切り替え等の前に処理）
-            items = self.canvas.find_overlapping(cx-2, cy-2, cx+2, cy+2)
-            for item_id in reversed(items):
-                tags = self.canvas.gettags(item_id)
-                if "collapse_icon" in tags:
-                    for t in tags:
-                        if t != "collapse_icon" and t != "current":
-                            node = self.model.find_node_by_id(t)
-                            if node:
-                                node.collapsed = not node.collapsed
-                                self.selected_node = node
-                                self.render()
-                                return "break"
-            
-            # 通常モードの処理
-            if clicked_node:
-                # 別のノードをクリックした場合は、全体再描画ではなく選択状態の部分更新のみ行う
-                if self.selected_node != clicked_node or self.selected_reference is not None:
-                    old_node = self.selected_node
-                    self.selected_node = clicked_node
-                    
-                    if old_node and old_node != self.selected_node:
-                        self.graphics.draw_node(old_node, is_selected=False)
-                    self.graphics.draw_node(self.selected_node, is_selected=True)
-                    
-                    if self.selected_reference is not None:
-                        # 参照の選択状態も解除する
-                        old_ref = self.selected_reference
-                        self.selected_reference = None
-                        source_node = self.model.find_node_by_id(old_ref.source_id)
-                        target_node = self.model.find_node_by_id(old_ref.target_id)
-                        if source_node and target_node:
-                            self.graphics.draw_reference(old_ref, source_node, target_node, is_selected=False)
+    def _deselect_all(self):
+        if self.selected_reference is not None:
+            old_ref = self.selected_reference
+            self.selected_reference = None
+            self._redraw_reference(old_ref, is_selected=False)
+        # selected_node の選択解除は find_node_at が None を返したときに行うべきだが、
+        # 現在の logic ではクリックした場所に何もなければ選択を維持する仕様のようなので、
+        # ここでは参照の解除にとどめる（既存の振る舞いを維持）。
 
-                # ドラッグ開始の準備
-                self.drag_handler.start_drag(event, self.selected_node)
-            else:
-                if clicked_ref:
-                    if self.selected_reference != clicked_ref or self.selected_node is not None:
-                        old_ref = self.selected_reference
-                        self.selected_reference = clicked_ref
-                        
-                        if old_ref and old_ref != self.selected_reference:
-                            source_node = self.model.find_node_by_id(old_ref.source_id)
-                            target_node = self.model.find_node_by_id(old_ref.target_id)
-                            if source_node and target_node:
-                                self.graphics.draw_reference(old_ref, source_node, target_node, is_selected=False)
-                        
-                        source_node = self.model.find_node_by_id(self.selected_reference.source_id)
-                        target_node = self.model.find_node_by_id(self.selected_reference.target_id)
-                        if source_node and target_node:
-                            self.graphics.draw_reference(self.selected_reference, source_node, target_node, is_selected=True)
-                        
-                        if self.selected_node is not None:
-                            old_node = self.selected_node
-                            self.selected_node = None
-                            self.graphics.draw_node(old_node, is_selected=False)
-                else:
-                    if self.selected_reference is not None:
-                        old_ref = self.selected_reference
-                        self.selected_reference = None
-                        source_node = self.model.find_node_by_id(old_ref.source_id)
-                        target_node = self.model.find_node_by_id(old_ref.target_id)
-                        if source_node and target_node:
-                            self.graphics.draw_reference(old_ref, source_node, target_node, is_selected=False)
+    def _redraw_reference(self, ref, is_selected):
+        if not ref: return
+        source_node = self.model.find_node_by_id(ref.source_id)
+        target_node = self.model.find_node_by_id(ref.target_id)
+        if source_node and target_node:
+            self.graphics.draw_reference(ref, source_node, target_node, is_selected=is_selected)
 
     def _on_motion(self, event):
         if self.selected_handle:

@@ -243,70 +243,76 @@ class GraphicsEngine:
     def _draw_rich_text(self, x, y, node, base_font, tags):
         """リッチテキストを自動折り返しを考慮して描画する（画像対応）"""
         wrapped_lines = self._wrap_rich_text(node.text, base_font, 250)
-        family = base_font[0]
-        size = base_font[1]
-        
-        # 全体の高さを計算して開始Y座標を調整
+        family, size = base_font[0], base_font[1]
         w, h = self.get_text_size(node, base_font)
         
-        # 画像がある場合は先に描画
-        img_h_offset = 0
-        if node.image_data and node.id in self.image_cache:
-            photo, _ = self.image_cache[node.id]
-            img_h = photo.height()
-            # 画像をテキストの上に描画
-            img_tags = list(tags) + ["node_image"]
-            img_id = self.canvas.create_image(x, y - h/2 + 10 + img_h/2, image=photo, tags=tuple(img_tags))
-            self.image_items[node.id] = img_id
-            img_h_offset = img_h + IMAGE_SPACING
+        # 1. 画像の描画
+        img_h_offset = self._draw_node_image(x, y, h, node, tags)
 
+        # 2. テキストの描画開始位置
         curr_y = y - h/2 + 10 + img_h_offset
-        
         item_ids = []
         
         for line_segments in wrapped_lines:
-            # 行の幅を計算して中央寄せの開始Xを決定
-            line_w = 0
-            temp_items = []
-            
             if not line_segments:
                 curr_y += size + 10
                 continue
 
-            for txt, style, underline, color in line_segments:
-                font = (family, size, style) if style != "normal" else (family, size)
-                tid = self.canvas.create_text(0, 0, text=txt, font=font)
-                bbox = self.canvas.bbox(tid)
-                self.canvas.delete(tid)
-                if bbox:
-                    line_w += (bbox[2] - bbox[0])
-                    temp_items.append((txt, font, underline, color, bbox[2]-bbox[0], bbox[3]-bbox[1]))
-            
-            curr_x = x - line_w / 2
-            max_line_h = 0
-            
-            for txt, font, underline, color, seg_w, seg_h in temp_items:
-                # テキスト描画
-                tid = self.canvas.create_text(
-                    curr_x + seg_w/2, curr_y + seg_h/2,
-                    text=txt, font=font, fill=color, tags=tags, anchor="center"
-                )
-                item_ids.append(tid)
-                
-                if underline:
-                    # アンダーライン描画
-                    lx1 = curr_x
-                    lx2 = curr_x + seg_w
-                    ly = curr_y + seg_h - 2
-                    uid = self.canvas.create_line(lx1, ly, lx2, ly, fill=color, width=1, tags=tags)
-                    item_ids.append(uid)
-                
-                curr_x += seg_w
-                max_line_h = max(max_line_h, seg_h)
-            
-            curr_y += (max_line_h if max_line_h > 0 else size + 10)
+            line_item_ids, line_h = self._draw_text_line(x, curr_y, line_segments, family, size, tags)
+            item_ids.extend(line_item_ids)
+            curr_y += (line_h if line_h > 0 else size + 10)
             
         return item_ids
+
+    def _draw_node_image(self, x, y, total_h, node, tags) -> float:
+        if node.image_data and node.id in self.image_cache:
+            photo, _ = self.image_cache[node.id]
+            img_h = photo.height()
+            img_tags = list(tags) + ["node_image"]
+            img_id = self.canvas.create_image(x, y - total_h/2 + 10 + img_h/2, image=photo, tags=tuple(img_tags))
+            self.image_items[node.id] = img_id
+            return img_h + IMAGE_SPACING
+        return 0.0
+
+    def _draw_text_line(self, center_x, curr_y, line_segments, family, size, tags):
+        line_w = 0
+        temp_segments = []
+        
+        # 行の幅を計算
+        for txt, style, underline, color in line_segments:
+            font = (family, size, style) if style != "normal" else (family, size)
+            tid = self.canvas.create_text(0, 0, text=txt, font=font)
+            bbox = self.canvas.bbox(tid)
+            self.canvas.delete(tid)
+            if bbox:
+                seg_w, seg_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+                line_w += seg_w
+                temp_segments.append((txt, font, underline, color, seg_w, seg_h))
+        
+        # 中央寄せのための開始位置
+        curr_x = center_x - line_w / 2
+        max_line_h = 0
+        line_item_ids = []
+        
+        # セグメントごとに描画
+        for txt, font, underline, color, seg_w, seg_h in temp_segments:
+            tid = self.canvas.create_text(
+                curr_x + seg_w/2, curr_y + seg_h/2,
+                text=txt, font=font, fill=color, tags=tags, anchor="center"
+            )
+            line_item_ids.append(tid)
+            
+            if underline:
+                uid = self.canvas.create_line(
+                    curr_x, curr_y + seg_h - 2, curr_x + seg_w, curr_y + seg_h - 2,
+                    fill=color, width=1, tags=tags
+                )
+                line_item_ids.append(uid)
+            
+            curr_x += seg_w
+            max_line_h = max(max_line_h, seg_h)
+            
+        return line_item_ids, max_line_h
 
     def _calculate_bezier_points(self, p0, p1, p2, p3, steps):
         """ベジェ曲線の点列を計算する"""
