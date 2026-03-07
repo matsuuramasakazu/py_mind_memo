@@ -38,6 +38,16 @@ class GraphicsEngine:
         self.root_font = (FONT_FAMILY, FONT_SIZE_ROOT, "bold")
         
         self.branch_colors = BRANCH_COLORS
+        self._font_cache = {}
+
+    def _get_font(self, family, size, style):
+        """キャッシュを利用してフォントオブジェクトを取得または作成する"""
+        cache_key = (family, size, style)
+        if cache_key not in self._font_cache:
+            weight = "bold" if "bold" in style else "normal"
+            slant = "italic" if "italic" in style else "roman"
+            self._font_cache[cache_key] = tkfont.Font(family=family, size=size, weight=weight, slant=slant)
+        return self._font_cache[cache_key]
 
     def _get_node_color(self, node: Node):
         """ノードの系統色を取得（ルートの子ノードに基づき決定）"""
@@ -114,14 +124,8 @@ class GraphicsEngine:
         family = base_font[0]
         size = base_font[1]
         
-        # フォントオブジェクトのキャッシュ（パフォーマンス向上用）
-        font_cache = {}
-
         def get_font(style):
-            if style not in font_cache:
-                font_tuple = (family, size, style) if style != "normal" else (family, size)
-                font_cache[style] = tkfont.Font(family=family, size=size, weight="bold" if "bold" in style else "normal", slant="italic" if "italic" in style else "roman")
-            return font_cache[style]
+            return self._get_font(family, size, style)
 
         for p in paragraphs:
             segments = self._parse_markup(p)
@@ -206,15 +210,8 @@ class GraphicsEngine:
         family = base_font[0]
         size = base_font[1]
         
-        # フォントオブジェクトのキャッシュ
-        font_objs = {}
         def get_font_metrics(style):
-            if style not in font_objs:
-                f = tkfont.Font(family=family, size=size, 
-                               weight="bold" if "bold" in style else "normal", 
-                               slant="italic" if "italic" in style else "roman")
-                font_objs[style] = f
-            return font_objs[style]
+            return self._get_font(family, size, style)
 
         for line_segments in wrapped_lines:
             line_w = 0
@@ -265,6 +262,7 @@ class GraphicsEngine:
         return item_ids
 
     def _draw_node_image(self, x, y, total_h, node, tags) -> float:
+        """ノードに設定された画像をテキスト上部に描画し、占有した高さを返す"""
         if node.image_data and node.id in self.image_cache:
             photo, _ = self.image_cache[node.id]
             img_h = photo.height()
@@ -275,6 +273,7 @@ class GraphicsEngine:
         return 0.0
 
     def _draw_text_line(self, center_x, curr_y, line_segments, family, size, tags):
+        """1行分のリッチテキスト（複数セグメント）を中央寄せで描画し、描画アイテムIDと行高さを返す"""
         line_w = 0
         temp_segments = []
         

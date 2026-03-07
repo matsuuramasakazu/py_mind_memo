@@ -133,6 +133,7 @@ class MindMapView:
             self._deselect_all()
 
     def _handle_reference_mode_click(self, cx, cy) -> bool:
+        """参照モード選択中のクリック処理を行う"""
         clicked_node = self.find_node_at(cx, cy)
         if not clicked_node:
             return False
@@ -157,6 +158,7 @@ class MindMapView:
         return True
 
     def _handle_image_click(self, cx, cy) -> bool:
+        """ノード画像のクリック判定と拡大表示処理を行う"""
         items = self.canvas.find_overlapping(cx-2, cy-2, cx+2, cy+2)
         for item_id in reversed(items):
             tags = self.canvas.gettags(item_id)
@@ -170,6 +172,7 @@ class MindMapView:
         return False
 
     def _handle_reference_click(self, cx, cy) -> bool:
+        """参照線またはそのハンドルのクリック判定と選択処理を行う"""
         items = self.canvas.find_overlapping(cx-4, cy-4, cx+4, cy+4)
         clicked_ref = None
         clicked_handle = None
@@ -201,6 +204,7 @@ class MindMapView:
         return False
 
     def _handle_node_collapse_click(self, cx, cy) -> bool:
+        """折りたたみアイコンのクリック判定と開閉処理を行う"""
         items = self.canvas.find_overlapping(cx-2, cy-2, cx+2, cy+2)
         for item_id in reversed(items):
             tags = self.canvas.gettags(item_id)
@@ -216,6 +220,7 @@ class MindMapView:
         return False
 
     def _select_node(self, node):
+        """指定したノードを選択状態にする（他の選択は解除される）"""
         if self.selected_node != node or self.selected_reference is not None:
             old_node = self.selected_node
             self.selected_node = node
@@ -230,6 +235,7 @@ class MindMapView:
                 self._redraw_reference(old_ref, is_selected=False)
 
     def _select_reference(self, ref):
+        """指定した参照を選択状態にする（他の選択は解除される）"""
         if self.selected_reference != ref or self.selected_node is not None:
             old_ref = self.selected_reference
             self.selected_reference = ref
@@ -245,6 +251,8 @@ class MindMapView:
                 self.graphics.draw_node(old_node, is_selected=False)
 
     def _deselect_all(self):
+        """全てのノード・参照の選択を解除する（参照のみ先行して解除）"""
+        """全てのノード・参照の選択を解除する（参照のみ先行して解除）"""
         if self.selected_reference is not None:
             old_ref = self.selected_reference
             self.selected_reference = None
@@ -254,6 +262,7 @@ class MindMapView:
         # ここでは参照の解除にとどめる（既存の振る舞いを維持）。
 
     def _redraw_reference(self, ref, is_selected):
+        """特定の参照線を再描画する"""
         if not ref: return
         source_node = self.model.find_node_by_id(ref.source_id)
         target_node = self.model.find_node_by_id(ref.target_id)
