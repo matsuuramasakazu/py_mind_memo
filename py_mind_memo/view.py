@@ -189,11 +189,13 @@ class MindMapView:
                 for t in tags:
                     if t != "reference" and t != "current":
                         ref = self.model.find_reference_by_id(t)
-                        if ref: clicked_ref = ref
+                        if ref:
+                            clicked_ref = ref
 
         if clicked_handle:
             self.selected_handle = clicked_handle
-            if clicked_ref: self.selected_reference = clicked_ref
+            if clicked_ref:
+                self.selected_reference = clicked_ref
             self.selected_node = None
             return True
             
@@ -252,7 +254,6 @@ class MindMapView:
 
     def _deselect_all(self):
         """全てのノード・参照の選択を解除する（参照のみ先行して解除）"""
-        """全てのノード・参照の選択を解除する（参照のみ先行して解除）"""
         if self.selected_reference is not None:
             old_ref = self.selected_reference
             self.selected_reference = None
@@ -263,7 +264,8 @@ class MindMapView:
 
     def _redraw_reference(self, ref, is_selected):
         """特定の参照線を再描画する"""
-        if not ref: return
+        if not ref:
+            return
         source_node = self.model.find_node_by_id(ref.source_id)
         target_node = self.model.find_node_by_id(ref.target_id)
         if source_node and target_node:

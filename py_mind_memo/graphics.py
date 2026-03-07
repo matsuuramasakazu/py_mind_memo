@@ -241,7 +241,7 @@ class GraphicsEngine:
         """リッチテキストを自動折り返しを考慮して描画する（画像対応）"""
         wrapped_lines = self._wrap_rich_text(node.text, base_font, 250)
         family, size = base_font[0], base_font[1]
-        w, h = self.get_text_size(node, base_font)
+        _, h = self.get_text_size(node, base_font)
         
         # 1. 画像の描画
         img_h_offset = self._draw_node_image(x, y, h, node, tags)
