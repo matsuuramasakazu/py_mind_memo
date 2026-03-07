@@ -188,3 +188,29 @@ class MindMapModel:
             # 古いバージョンの形式（ルートトピック直書き）との互換性用
             self.root = Node.from_dict(data)
             self.references = []
+
+    def _move_node(self, node: Node, offset: int) -> bool:
+        """指定されたノードを、親のchildrenリスト内で指定オフセット分移動する"""
+        if not node.parent:
+            return False
+            
+        siblings = node.parent.children
+        try:
+            idx = siblings.index(node)
+        except ValueError:
+            return False
+            
+        new_idx = idx + offset
+        if 0 <= new_idx < len(siblings):
+            siblings[idx], siblings[new_idx] = siblings[new_idx], siblings[idx]
+            self.is_modified = True
+            return True
+        return False
+
+    def move_node_up(self, node: Node) -> bool:
+        """指定されたノードを、親のchildrenリスト内で1つ前（上/反時計回り）に移動する"""
+        return self._move_node(node, -1)
+
+    def move_node_down(self, node: Node) -> bool:
+        """指定されたノードを、親のchildrenリスト内で1つ後ろ（下/時計回り）に移動する"""
+        return self._move_node(node, 1)
