@@ -177,8 +177,7 @@ class MindMapView:
                     if t not in ("node_image", "text", "current", "node"):
                         node = self.model.find_node_by_id(t)
                         if node and node.image_path:
-                            self._show_enlarged_image(node)
-                            return True
+                            return self._show_enlarged_image(node)
         return False
 
     def _handle_reference_click(self, cx, cy) -> bool:
@@ -365,7 +364,14 @@ class MindMapView:
         else:
             self.render(force_center=True)
 
+    def _close_enlarged_image_windows(self):
+        for win in list(self.enlarged_image_windows.values()):
+            if win.winfo_exists():
+                win.destroy()
+        self.enlarged_image_windows.clear()
+
     def _on_load_complete(self, root_node):
+        self._close_enlarged_image_windows()
         self.selected_node = root_node
         self.render()
 
@@ -594,7 +600,7 @@ class MindMapView:
         else:
             self.root.quit()
 
-    def _show_enlarged_image(self, node: Node):
+    def _show_enlarged_image(self, node: Node) -> bool:
         """元の画像を拡大表示ウィンドウで表示する"""
         try:
             # 既にウィンドウが開いている場合は最前面に持ってくる
@@ -603,7 +609,7 @@ class MindMapView:
                 if win.winfo_exists():
                     win.lift()
                     win.focus_set()
-                    return
+                    return True
                 else:
                     del self.enlarged_image_windows[node.id]
 
@@ -615,7 +621,7 @@ class MindMapView:
 
             # インポートした画像サイズが定数未満の場合は拡大表示ウィンドウを表示しない
             if img_w < MAX_IMAGE_WIDTH and img_h < MAX_IMAGE_HEIGHT:
-                return
+                return False
 
             # 拡大表示用のウィンドウ作成
             top = tk.Toplevel(self.root)
@@ -675,6 +681,8 @@ class MindMapView:
             
             # スクロール領域の設定
             canvas.config(scrollregion=(0, 0, img_w, img_h))
+            return True
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open enlarged image: {e}")
+            return False
