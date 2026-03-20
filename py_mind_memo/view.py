@@ -10,7 +10,7 @@ from .persistence import PersistenceHandler
 from tkinter import messagebox
 from .constants import (
     DEFAULT_LOGICAL_CENTER_X, DEFAULT_LOGICAL_CENTER_Y,
-    CANVAS_MARGIN, COLOR_CANVAS_BG
+    CANVAS_MARGIN, COLOR_CANVAS_BG, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT
 )
 
 class MindMapView:
@@ -26,6 +26,9 @@ class MindMapView:
         self.reference_source_node = None
         self.selected_reference = None
         self.selected_handle = None
+        
+        # 拡大画像ウィンドウの管理 (node.id -> tk.Toplevel)
+        self.enlarged_image_windows = {}
         
         # メインフレーム（CanvasとScrollbarを配置）
         self.main_frame = tk.Frame(self.root)
@@ -174,8 +177,7 @@ class MindMapView:
                     if t not in ("node_image", "text", "current", "node"):
                         node = self.model.find_node_by_id(t)
                         if node and node.image_path:
-                            self._show_enlarged_image(node)
-                            return True
+                            return self._show_enlarged_image(node)
         return False
 
     def _handle_reference_click(self, cx, cy) -> bool:
@@ -362,7 +364,14 @@ class MindMapView:
         else:
             self.render(force_center=True)
 
+    def _close_enlarged_image_windows(self):
+        for win in list(self.enlarged_image_windows.values()):
+            if win.winfo_exists():
+                win.destroy()
+        self.enlarged_image_windows.clear()
+
     def _on_load_complete(self, root_node):
+        self._close_enlarged_image_windows()
         self.selected_node = root_node
         self.render()
 
@@ -591,17 +600,32 @@ class MindMapView:
         else:
             self.root.quit()
 
-    def _show_enlarged_image(self, node: Node):
+    def _show_enlarged_image(self, node: Node) -> bool:
         """元の画像を拡大表示ウィンドウで表示する"""
         try:
+            # 既にウィンドウが開いている場合は最前面に持ってくる
+            if node.id in self.enlarged_image_windows:
+                win = self.enlarged_image_windows[node.id]
+                if win.winfo_exists():
+                    win.lift()
+                    win.focus_set()
+                    return True
+                else:
+                    del self.enlarged_image_windows[node.id]
+
             # 画像の読み込み（サイズ取得のために先に読み込む）
             # ファイル存在チェックとオープンの間の時間差によるエラーを防ぐため try-except 内で行う
             photo = tk.PhotoImage(file=node.image_path)
             img_w = photo.width()
             img_h = photo.height()
 
+            # インポートした画像サイズが定数未満の場合は拡大表示ウィンドウを表示しない
+            if img_w < MAX_IMAGE_WIDTH and img_h < MAX_IMAGE_HEIGHT:
+                return False
+
             # 拡大表示用のウィンドウ作成
             top = tk.Toplevel(self.root)
+            self.enlarged_image_windows[node.id] = top
             top.title(f"Enlarged Image - {os.path.basename(node.image_path)}")
             
             # デフォルトの最大サイズ
@@ -617,8 +641,16 @@ class MindMapView:
 
             # --- 下から順に配置していくことでボタンを確実に表示させる ---
             
+            # ウィンドウが閉じられた時の処理
+            def on_close():
+                if node.id in self.enlarged_image_windows:
+                    del self.enlarged_image_windows[node.id]
+                top.destroy()
+                
+            top.protocol("WM_DELETE_WINDOW", on_close)
+
             # 1. 閉じるボタンを一番下に配置
-            close_btn = tk.Button(top, text="Close", command=top.destroy, padx=20)
+            close_btn = tk.Button(top, text="Close", command=on_close, padx=20)
             close_btn.pack(side=tk.BOTTOM, pady=10)
 
             # 2. 水平スクロールバーをその上に配置
@@ -649,6 +681,8 @@ class MindMapView:
             
             # スクロール領域の設定
             canvas.config(scrollregion=(0, 0, img_w, img_h))
+            return True
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open enlarged image: {e}")
+            return False

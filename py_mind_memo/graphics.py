@@ -9,7 +9,7 @@ from .constants import (
     COLOR_TEXT, COLOR_ROOT_OUTLINE, COLOR_ROOT_FILL,
     COLOR_HIGHLIGHT_FILL, COLOR_HIGHLIGHT_OUTLINE,
     FONT_FAMILY, FONT_SIZE_NORMAL, FONT_SIZE_ROOT,
-    BRANCH_COLORS, IMAGE_SPACING
+    BRANCH_COLORS, IMAGE_SPACING, ICON_SIZE, ICON_PADDING
 )
 
 class GraphicsEngine:
@@ -187,6 +187,7 @@ class GraphicsEngine:
         # 画像のサイズを取得
         img_w = 0
         img_h = 0
+        is_icon = False
         if node.image_data:
             current_data_hash = hash(node.image_data)
             photo = None
@@ -204,8 +205,13 @@ class GraphicsEngine:
                     photo = None
             
             if photo:
-                img_w = photo.width()
-                img_h = photo.height() + IMAGE_SPACING # spacing
+                is_icon = (photo.width() == ICON_SIZE and photo.height() == ICON_SIZE)
+                if is_icon:
+                    img_w = photo.width() + IMAGE_SPACING
+                    # アイコンの場合は高さには加算しない
+                else:
+                    img_w = photo.width()
+                    img_h = photo.height() + IMAGE_SPACING # spacing
         
         family = base_font[0]
         size = base_font[1]
@@ -230,7 +236,11 @@ class GraphicsEngine:
             max_w = max(max_w, line_w)
             total_h += (line_max_h if line_max_h > 0 else size + 10)
             
-        result = max(100, max(max_w + 20, img_w + 20)), max(35, total_h + 12 + img_h)
+        if is_icon:
+            result = max(100, max_w + img_w + ICON_PADDING * 2), max(35, total_h + 12)
+        else:
+            result = max(100, max(max_w + 20, img_w + 20)), max(35, total_h + 12 + img_h)
+            
         # キャッシュに保存
         node._size_cache = result
         node._size_cache_key = cache_key
@@ -241,13 +251,22 @@ class GraphicsEngine:
         """リッチテキストを自動折り返しを考慮して描画する（画像対応）"""
         wrapped_lines = self._wrap_rich_text(node.text, base_font, 250)
         family, size = base_font[0], base_font[1]
-        _, h = self.get_text_size(node, base_font)
+        w, h = self.get_text_size(node, base_font)
+        
+        text_block_w = 0
+        for line_segments in wrapped_lines:
+            line_w = 0
+            for txt, style, _, _ in line_segments:
+                line_w += self._get_font(family, size, style).measure(txt)
+            text_block_w = max(text_block_w, line_w)
         
         # 1. 画像の描画
-        img_h_offset = self._draw_node_image(x, y, h, node, tags)
+        img_w_offset, img_h_offset = self._draw_node_image(x, y, text_block_w, h, node, tags)
 
         # 2. テキストの描画開始位置
         curr_y = y - h/2 + 10 + img_h_offset
+        content_left = x - (text_block_w + img_w_offset) / 2
+        center_x = content_left + img_w_offset + text_block_w / 2
         item_ids = []
         
         for line_segments in wrapped_lines:
@@ -255,22 +274,33 @@ class GraphicsEngine:
                 curr_y += size + 10
                 continue
 
-            line_item_ids, line_h = self._draw_text_line(x, curr_y, line_segments, family, size, tags)
+            line_item_ids, line_h = self._draw_text_line(center_x, curr_y, line_segments, family, size, tags)
             item_ids.extend(line_item_ids)
             curr_y += (line_h if line_h > 0 else size + 10)
             
         return item_ids
 
-    def _draw_node_image(self, x, y, total_h, node, tags) -> float:
-        """ノードに設定された画像をテキスト上部に描画し、占有した高さを返す"""
+    def _draw_node_image(self, x, y, text_block_w, total_h, node, tags) -> tuple:
+        """ノードに設定された画像をテキスト上部に描画し、占有した高さと幅のオフセットを返す (w_offset, h_offset)"""
         if node.image_data and node.id in self.image_cache:
             photo, _ = self.image_cache[node.id]
+            img_w = photo.width()
             img_h = photo.height()
             img_tags = list(tags) + ["node_image"]
-            img_id = self.canvas.create_image(x, y - total_h/2 + 10 + img_h/2, image=photo, tags=tuple(img_tags))
-            self.image_items[node.id] = img_id
-            return img_h + IMAGE_SPACING
-        return 0.0
+            
+            if img_w == ICON_SIZE and img_h == ICON_SIZE:
+                # アイコン表示：テキスト全体の左側に配置
+                content_left = x - (text_block_w + img_w + IMAGE_SPACING) / 2
+                icon_x = content_left + img_w / 2
+                icon_y = y - total_h / 2 + 20
+                img_id = self.canvas.create_image(icon_x, icon_y, image=photo, tags=tuple(img_tags))
+                self.image_items[node.id] = img_id
+                return img_w + IMAGE_SPACING, 0.0
+            else:
+                img_id = self.canvas.create_image(x, y - total_h/2 + 10 + img_h/2, image=photo, tags=tuple(img_tags))
+                self.image_items[node.id] = img_id
+                return 0.0, img_h + IMAGE_SPACING
+        return 0.0, 0.0
 
     def _draw_text_line(self, center_x, curr_y, line_segments, family, size, tags):
         """1行分のリッチテキスト（複数セグメント）を中央寄せで描画し、描画アイテムIDと行高さを返す"""

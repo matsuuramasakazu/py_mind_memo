@@ -113,7 +113,6 @@ class NodeEditor:
             try:
                 photo = self.image_handler.get_photo_from_base64(node.image_data)
                 entry.image_create("1.0", image=photo)
-                entry.insert("end", "\n")
             except ValueError as e:
                 # 画像のデコード失敗時はエラー内容をコンソールに出力して継続
                 print(f"Warning: {e}")
@@ -211,10 +210,6 @@ class NodeEditor:
             target_node.image_data = None
             target_node.image_path = None
             self.model.is_modified = True
-            # 画像が削除された場合、画像表示用に挿入された先頭の改行を削除
-            # ただし、元々のテキストが改行で始まっていなかった場合のみ削除する
-            if new_text.startswith('\n') and not target_node.text.startswith('\n'):
-                new_text = new_text[1:]
 
         if new_text is not None and new_text != target_node.text:
             target_node.text = new_text
