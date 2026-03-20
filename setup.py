@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="py_mind_memo",
-    version="0.5.0",
+    version="0.5.1",
     author="matsuuramasakazu",
     author_email="matsuuramasakazu@outlook.jp",
     description="A lightweight and intuitive mindmap like tool built with tkinter.",
@@ -10,6 +10,9 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/matsuuramasakazu/py_mind_memo",
     packages=find_packages(),
+    package_data={
+        "py_mind_memo": ["assets/icons/*.png"],
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
