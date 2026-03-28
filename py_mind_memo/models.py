@@ -133,7 +133,18 @@ class MindMapModel:
     def __init__(self, root_text: str = "Root Topic"):
         self.root = Node(root_text)
         self.references: List[Reference] = []
-        self.is_modified = False
+        self._is_modified = False
+        self.modification_count = 0
+
+    @property
+    def is_modified(self) -> bool:
+        return self._is_modified
+
+    @is_modified.setter
+    def is_modified(self, value: bool):
+        self._is_modified = value
+        if value:
+            self.modification_count += 1
 
     def add_node(self, parent_node: Node, text: str = "New Topic") -> Node:
         """指定したノードに子ノードを追加する。ルート直下の場合は方向を自動調整する。"""
@@ -179,6 +190,10 @@ class MindMapModel:
             "root": self.root.to_dict(),
             "references": [ref.to_dict() for ref in self.references]
         }
+
+    def save_with_revision(self) -> tuple:
+        """データとその時点のリビジョン番号を返す"""
+        return self.save(), self.modification_count
 
     def load(self, data: dict):
         if "root" in data:

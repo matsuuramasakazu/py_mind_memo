@@ -50,9 +50,27 @@ class PersistenceHandler:
             return False
 
     def _perform_write_to_file(self, file_path, data):
-        """実際のファイル書き込みのみを行い、UI・モデル状態管理には関与しない"""
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
+        """アトミックな書き込みを行う。一時ファイルを作成し、成功時のみ置換する。"""
+        import tempfile
+        import os
+
+        dir_name = os.path.dirname(os.path.abspath(file_path))
+        # ターゲットと同じディレクトリに一時ファイルを作成
+        fd, temp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+                f.flush()
+                os.fsync(f.fileno())
+            # アトミックに置換
+            os.replace(temp_path, file_path)
+        except Exception:
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
+            raise
 
     def on_open(self, event=None):
         file_path = filedialog.askopenfilename(

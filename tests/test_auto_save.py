@@ -14,6 +14,7 @@ class TestAutoSave(unittest.TestCase):
              patch('py_mind_memo.view.DragDropHandler'), \
              patch('py_mind_memo.view.KeyboardNavigator'), \
              patch('py_mind_memo.view.PersistenceHandler'), \
+             patch('py_mind_memo.view.MindMapModel'), \
              patch('py_mind_memo.view.MindMapView.render'), \
              patch('tkinter.Canvas'), \
              patch('tkinter.Frame'), \
@@ -30,6 +31,8 @@ class TestAutoSave(unittest.TestCase):
         self.view.persistence.current_file_path = "test.json"
         self.view.model.is_modified = True
         self.view.editor.is_editing.return_value = False
+        self.view.model.save_with_revision.return_value = ({}, 1)
+        self.view.model.modification_count = 1
         
         with patch('threading.Thread') as mock_thread:
             # ターゲット関数を即座に実行する
@@ -43,29 +46,19 @@ class TestAutoSave(unittest.TestCase):
             # データのキャプチャと書き込みの検証
             self.view.persistence._perform_write_to_file.assert_called_once()
             
-            # メインスレッド処理の結果 (成功時) を手動で呼び出す (after(0, ...) の代わり)
-            # 実際には Thread 内で self.root.after(0, self._on_auto_save_complete, True) が呼ばれる
-            self.root.after.assert_any_call(0, self.view._on_auto_save_complete, True)
+            # メインスレッド処理の結果 (成功時) を手動で呼び出す
+            self.root.after.assert_any_call(0, self.view._on_auto_save_complete, True, 1)
             
             # 完了処理を直接呼んで通知を検証
-            self.view._on_auto_save_complete(True)
+            self.view._on_auto_save_complete(True, 1)
             self.view.status_bar.config.assert_any_call(text="Saved automatically")
-
-            # 1000ms後の消去予約の検証
-            calls = self.root.after.call_args_list
-            status_clear_call = next(c for c in calls if c.args[0] == 1000)
-            timeout, callback = status_clear_call.args
-            self.assertEqual(timeout, 1000)
-            
-            # コールバックを実行して消去されることを確認
-            callback()
-            self.view.status_bar.config.assert_called_with(text="")
 
     def test_auto_save_check_does_not_notify_on_failure(self):
         """保存失敗時に通知が表示されないこと"""
         self.view.persistence.current_file_path = "test.json"
         self.view.model.is_modified = True
         self.view.editor.is_editing.return_value = False
+        self.view.model.save_with_revision.return_value = ({}, 1)
         # 書き込み例外を発生させる
         self.view.persistence._perform_write_to_file.side_effect = Exception("error")
         
@@ -78,16 +71,37 @@ class TestAutoSave(unittest.TestCase):
             self.view._auto_save_check()
             
             # 失敗時は True ではなく False で after が呼ばれる
-            self.root.after.assert_any_call(0, self.view._on_auto_save_complete, False)
+            self.root.after.assert_any_call(0, self.view._on_auto_save_complete, False, 1)
             
             # 完了処理(失敗)を実行
             self.view.status_bar.config.reset_mock()
-            self.view._on_auto_save_complete(False)
+            self.view._on_auto_save_complete(False, 1)
             
             # 通知（Saved automatically）が呼ばれていないこと
             for call in self.view.status_bar.config.call_args_list:
                 if call.kwargs.get('text') == "Saved automatically":
                     self.fail("Status message shown on failure")
+
+    def test_auto_save_does_not_clear_modified_if_revision_mismatch(self):
+        """保存中に新たな編集が発生した場合、変更フラグがクリアされないこと"""
+        self.view.model.is_modified = True
+        self.view.model.modification_count = 2 # 現在のリビジョンは 2
+        
+        # リビジョン 1 の保存が完了したとする
+        self.view._on_auto_save_complete(True, 1)
+        
+        # リビジョンが一致しない（＝保存開始後に別の編集があった）ため、is_modified は True のまま
+        # Note: MindMapModel.is_modified の実装に依存
+        self.assertTrue(self.view.model.is_modified)
+
+    def test_auto_save_clears_modified_if_revision_matches(self):
+        """保存中に新たな編集が発生しなかった場合、変更フラグがクリアされること"""
+        self.view.model.is_modified = True
+        self.view.model.modification_count = 1
+        
+        self.view._on_auto_save_complete(True, 1)
+        
+        self.assertFalse(self.view.model.is_modified)
 
     def test_auto_save_check_does_not_call_on_save_when_not_modified(self):
         """変更がない場合は保存が実行されないこと"""

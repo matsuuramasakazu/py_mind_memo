@@ -707,30 +707,36 @@ class MindMapView:
 
     def _auto_save_check(self):
         # ファイルパスが設定されており、変更があり、かつ編集中・保存中でない場合のみ保存
-        if (self.persistence.current_file_path and 
-            self.model.is_modified and 
-            not self.editor.is_editing() and
-            not self._is_saving):
-            
-            self._is_saving = True
-            # メインスレッドでデータをキャプチャ
-            data = self.model.save()
-            file_path = self.persistence.current_file_path
-            
-            def run_save():
-                try:
-                    self.persistence._perform_write_to_file(file_path, data)
-                    self.root.after(0, self._on_auto_save_complete, True)
-                except Exception:
-                    self.root.after(0, self._on_auto_save_complete, False)
+        try:
+            if (self.persistence.current_file_path and 
+                self.model.is_modified and 
+                not self.editor.is_editing() and
+                not self._is_saving):
+                
+                self._is_saving = True
+                # メインスレッドでデータをキャプチャ。その時点のリビジョンを取得。
+                data, revision = self.model.save_with_revision()
+                file_path = self.persistence.current_file_path
+                
+                def run_save():
+                    try:
+                        self.persistence._perform_write_to_file(file_path, data)
+                        self.root.after(0, self._on_auto_save_complete, True, revision)
+                    except Exception:
+                        self.root.after(0, self._on_auto_save_complete, False, revision)
 
-            threading.Thread(target=run_save, daemon=True).start()
-        
-        # 次のタイマーをセット
-        self._start_auto_save_timer()
+                threading.Thread(target=run_save, daemon=True).start()
+        except Exception:
+            # スレッド開始前までのエラーに対するフェイルセーフ
+            self._is_saving = False
+        finally:
+            # 次のタイマーをセット (例外に関わらず呼び出す)
+            self._start_auto_save_timer()
 
-    def _on_auto_save_complete(self, success):
+    def _on_auto_save_complete(self, success, revision):
         self._is_saving = False
         if success:
-            self.model.is_modified = False
+            # スナップショット取得時のリビジョンと現在のリビジョンが一致する場合のみ変更フラグを落とす
+            if self.model.modification_count == revision:
+                self.model.is_modified = False
             self.show_status_message("Saved automatically", 1000)
