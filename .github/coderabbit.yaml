@@ -1,20 +1,44 @@
-# .github/coderabbit.yaml
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "ja-JP"
+
 reviews:
-  language: "ja"
   auto_review:
     enabled: true
-    # 自動レビューの対象ブランチ
-    base_branches: ["main"]
-    # Draft PRを自動レビューしない
-    ignore_draft_pr: true
-    # ドキュメントの変更は無視
-    ignore_documentation_changes: true
-    # レビュー対象外のファイル
-    path_filters:
-      - "!bin/**"
-      - "!docs/**"
-      - "!dist/**"
-      - "!package-lock.json"
-      - "!images/**"
-      - "!__pycache__/**"
-      - "!build/**"
+    drafts: false
+    base_branches:
+      - "main"
+    auto_incremental_review: false
+
+  instructions:
+    system_instructions: |
+      あなたはシニアソフトウェアエンジニアとしてコードレビューを行います。
+      技術的に重要な問題を優先して指摘してください。
+
+      各レビューコメントは必ず以下のJSON形式を含めてください：
+
+      ```json
+      {
+        "priority": "P0|P1|P2|P3",
+        "reason": "...",
+        "fix": "...",
+        "file": "...",
+        "line": number|null
+      }
+      ```
+
+      冗長な説明や挨拶は不要です。
+
+    summarize_instructions: |
+      以下の形式でMarkdown出力してください：
+      ## 変更の概要
+      - コンポーネントごとの変更点
+      ## AIエージェントへの指示
+      - 優先的に確認・修正すべきファイルパスとその理由
+
+  path_filters:
+    - "!bin/**"
+    - "!docs/**"
+    - "!dist/**"
+    - "!images/**"
+    - "!**/__pycache__/**"
+    - "!build/**"

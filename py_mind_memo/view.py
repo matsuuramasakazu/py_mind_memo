@@ -85,9 +85,15 @@ class MindMapView:
         # マウスホイール
         self.canvas.bind("<MouseWheel>", self.on_mouse_wheel)
         self.canvas.bind("<Shift-MouseWheel>", self.on_mouse_wheel_x)
+        # ステータスバーの追加
+        self.status_bar = tk.Label(self.root, text="", bd=1, relief=tk.SUNKEN, anchor=tk.W)
+        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
         
         self.first_render = True
         self.render()
+        
+        # 自動保存タイマーの開始
+        self._start_auto_save_timer()
 
         # マウスイベントのバインド
         self.canvas.bind("<Button-1>", self._on_canvas_click)
@@ -686,3 +692,23 @@ class MindMapView:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open enlarged image: {e}")
             return False
+
+    def show_status_message(self, message, timeout=1000):
+        """ステータスバーにメッセージを表示し、timeoutミリ秒後に消去する"""
+        self.status_bar.config(text=message)
+        self.root.after(timeout, lambda: self.status_bar.config(text=""))
+
+    def _start_auto_save_timer(self):
+        # 10秒 (10000ms) 後にチェックを実行
+        self.root.after(10000, self._auto_save_check)
+
+    def _auto_save_check(self):
+        # ファイルパスが設定されており、かつ変更がある場合のみ保存
+        if self.persistence.current_file_path and self.model.is_modified:
+            # 念のため、現在ノードを編集中でない場合のみ実行
+            if not self.editor.is_editing():
+                self.persistence.on_save()
+                self.show_status_message("Saved automatically", 1000)
+        
+        # 次のタイマーをセット
+        self._start_auto_save_timer()

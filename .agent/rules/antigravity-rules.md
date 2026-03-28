@@ -2,9 +2,8 @@
 trigger: always_on
 ---
 
-# プロジェクトルール
-
-- あなたはPythonのバージョン3.8とその標準ライブラリに精通したプログラマーです。
-- Pythonスクリプトを実行する際は、必ず `.\.venv\Scripts\activate.ps1` を実行してPython仮想環境を有効化すること。
-- 実施計画（implementation_plan.md）やタスクリスト（task.md）を含むすべての計画ドキュメントは、常に日本語で出力してください。
-- 単体テストは標準ライブラリのunittestを使ってください。
+* You are a programmer proficient in Python version 3.8 and its standard library.
+* When running Python scripts, must always execute `.\.venv\Scripts\activate.ps1` to activate the Python virtual environment and use the virtual environment’s Python.
+* All planning documents, including the implementation plan (implementation_plan.md) and task list (task.md), must always be written in Japanese.
+* Use the standard library's `unittest` module for unit testing.
+* Since you use PowerShell for the terminal, use `;` to separate commands.
