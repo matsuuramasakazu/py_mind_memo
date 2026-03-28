@@ -181,6 +181,7 @@ class NodeEditor:
             # モデルの更新（この時点では一時的、finish_editで確定）
             node.image_data = self.image_handler.base64_from_photo(photo)
             node.image_path = file_path
+            self.model.is_modified = True
         except ValueError as e:
             messagebox.showerror("Error", str(e))
         except tk.TclError as e:
