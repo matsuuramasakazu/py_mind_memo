@@ -65,6 +65,7 @@ class DragDropHandler:
                 else:
                     dropped_node.direction = target_node.direction
                 dropped_node.update_direction_recursive(dropped_node.direction)
+                self.model.is_modified = True
                 self.render_callback()
         
         self.drag_data = {}

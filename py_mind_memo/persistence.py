@@ -11,9 +11,9 @@ class PersistenceHandler:
 
     def on_save(self, event=None):
         if self.current_file_path:
-            self._write_to_file(self.current_file_path)
+            return self._write_to_file(self.current_file_path)
         else:
-            self.on_save_as(event)
+            return self.on_save_as(event)
 
     def on_save_as(self, event=None):
         raw_text = self.model.root.text
@@ -34,18 +34,43 @@ class PersistenceHandler:
         )
         
         if file_path:
-            self._write_to_file(file_path)
+            return self._write_to_file(file_path)
+        return False
 
     def _write_to_file(self, file_path):
         """共通のファイル書き込み処理"""
         try:
             data = self.model.save()
-            with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
+            self._perform_write_to_file(file_path, data)
             self.current_file_path = file_path
             self.model.is_modified = False
+            return True
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save to {file_path}: {e}")
+            return False
+
+    def _perform_write_to_file(self, file_path, data):
+        """アトミックな書き込みを行う。一時ファイルを作成し、成功時のみ置換する。"""
+        import tempfile
+        import os
+
+        dir_name = os.path.dirname(os.path.abspath(file_path))
+        # ターゲットと同じディレクトリに一時ファイルを作成
+        fd, temp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+                f.flush()
+                os.fsync(f.fileno())
+            # アトミックに置換
+            os.replace(temp_path, file_path)
+        except Exception:
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
+            raise
 
     def on_open(self, event=None):
         file_path = filedialog.askopenfilename(
