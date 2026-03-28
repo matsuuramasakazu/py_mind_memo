@@ -14,7 +14,6 @@ class TestAutoSave(unittest.TestCase):
              patch('py_mind_memo.view.DragDropHandler'), \
              patch('py_mind_memo.view.KeyboardNavigator'), \
              patch('py_mind_memo.view.PersistenceHandler'), \
-             patch('py_mind_memo.view.MindMapModel'), \
              patch('py_mind_memo.view.MindMapView.render'), \
              patch('tkinter.Canvas'), \
              patch('tkinter.Frame'), \
@@ -29,10 +28,10 @@ class TestAutoSave(unittest.TestCase):
     def test_auto_save_check_calls_on_save_when_modified_and_path_exists(self):
         """ファイルパスがあり、変更がある場合に保存が実行されること"""
         self.view.persistence.current_file_path = "test.json"
+        # 実オブジェクトのリビジョン機能を使用
         self.view.model.is_modified = True
+        current_rev = self.view.model.modification_count
         self.view.editor.is_editing.return_value = False
-        self.view.model.save_with_revision.return_value = ({}, 1)
-        self.view.model.modification_count = 1
         
         with patch('threading.Thread') as mock_thread:
             # ターゲット関数を即座に実行する
@@ -47,18 +46,18 @@ class TestAutoSave(unittest.TestCase):
             self.view.persistence._perform_write_to_file.assert_called_once()
             
             # メインスレッド処理の結果 (成功時) を手動で呼び出す
-            self.root.after.assert_any_call(0, self.view._on_auto_save_complete, True, 1)
+            self.root.after.assert_any_call(0, self.view._on_auto_save_complete, True, current_rev)
             
             # 完了処理を直接呼んで通知を検証
-            self.view._on_auto_save_complete(True, 1)
+            self.view._on_auto_save_complete(True, current_rev)
             self.view.status_bar.config.assert_any_call(text="Saved automatically")
 
     def test_auto_save_check_does_not_notify_on_failure(self):
         """保存失敗時に通知が表示されないこと"""
         self.view.persistence.current_file_path = "test.json"
         self.view.model.is_modified = True
+        current_rev = self.view.model.modification_count
         self.view.editor.is_editing.return_value = False
-        self.view.model.save_with_revision.return_value = ({}, 1)
         # 書き込み例外を発生させる
         self.view.persistence._perform_write_to_file.side_effect = Exception("error")
         
@@ -71,11 +70,11 @@ class TestAutoSave(unittest.TestCase):
             self.view._auto_save_check()
             
             # 失敗時は True ではなく False で after が呼ばれる
-            self.root.after.assert_any_call(0, self.view._on_auto_save_complete, False, 1)
+            self.root.after.assert_any_call(0, self.view._on_auto_save_complete, False, current_rev)
             
             # 完了処理(失敗)を実行
             self.view.status_bar.config.reset_mock()
-            self.view._on_auto_save_complete(False, 1)
+            self.view._on_auto_save_complete(False, current_rev)
             
             # 通知（Saved automatically）が呼ばれていないこと
             for call in self.view.status_bar.config.call_args_list:
