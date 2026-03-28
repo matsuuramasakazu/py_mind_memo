@@ -703,12 +703,12 @@ class MindMapView:
         self.root.after(10000, self._auto_save_check)
 
     def _auto_save_check(self):
-        # ファイルパスが設定されており、かつ変更がある場合のみ保存
-        if self.persistence.current_file_path and self.model.is_modified:
-            # 念のため、現在ノードを編集中でない場合のみ実行
-            if not self.editor.is_editing():
-                if self.persistence.on_save():
-                    self.show_status_message("Saved automatically", 1000)
+        # ファイルパスが設定されており、変更があり、かつ編集中でない場合のみ保存
+        if (self.persistence.current_file_path and 
+            self.model.is_modified and 
+            not self.editor.is_editing()):
+            if self.persistence.on_save():
+                self.show_status_message("Saved automatically", 1000)
         
         # 次のタイマーをセット
         self._start_auto_save_timer()

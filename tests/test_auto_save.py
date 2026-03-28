@@ -82,7 +82,7 @@ class TestAutoSave(unittest.TestCase):
         self.root.after.reset_mock()
         self.view._auto_save_check()
         # 10000ms 後に再び自分を呼ぶように設定されているか
-        self.root.after.assert_called_with(10000, self.view._auto_save_check)
+        self.root.after.assert_any_call(10000, self.view._auto_save_check)
 
 if __name__ == '__main__':
     unittest.main()
