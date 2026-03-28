@@ -18,3 +18,4 @@ reviews:
       - "!images/**"
       - "!__pycache__/**"
       - "!build/**"
+  request_changes_workflow: true
