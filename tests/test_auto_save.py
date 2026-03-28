@@ -24,20 +24,30 @@ class TestAutoSave(unittest.TestCase):
             self.view = MindMapView(self.root)
             # 自動保存ループを止めるために after を固定する
             self.root.after.reset_mock()
-            # 自動保存ループを止めるために after を固定する
-            self.root.after.reset_mock()
 
     def test_auto_save_check_calls_on_save_when_modified_and_path_exists(self):
         """ファイルパスがあり、変更がある場合に保存が実行されること"""
         self.view.persistence.current_file_path = "test.json"
         self.view.model.is_modified = True
         self.view.editor.is_editing.return_value = False
+        self.view.persistence.on_save.return_value = True
         
         self.view._auto_save_check()
         
         self.view.persistence.on_save.assert_called_once()
         # 通知が表示されること
         self.view.status_bar.config.assert_any_call(text="Saved automatically")
+
+        # 1000ms後の消去予約の検証
+        # _auto_save_check内では after が2回呼ばれる (通知消去: 1000ms, 次のループ: 10000ms)
+        calls = self.root.after.call_args_list
+        status_clear_call = next(c for c in calls if c.args[0] == 1000)
+        timeout, callback = status_clear_call.args
+        self.assertEqual(timeout, 1000)
+        
+        # コールバックを実行して消去されることを確認
+        callback()
+        self.view.status_bar.config.assert_called_with(text="")
 
     def test_auto_save_check_does_not_call_on_save_when_not_modified(self):
         """変更がない場合は保存が実行されないこと"""

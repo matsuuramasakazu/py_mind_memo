@@ -22,9 +22,10 @@ reviews:
         "reason": "...",
         "fix": "...",
         "file": "...",
-        "line": number|null
+        "line": null
       }
       ```
+      ※ `line` は整数または null を指定してください。
 
       冗長な説明や挨拶は不要です。
 

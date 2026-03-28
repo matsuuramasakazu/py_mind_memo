@@ -707,8 +707,8 @@ class MindMapView:
         if self.persistence.current_file_path and self.model.is_modified:
             # 念のため、現在ノードを編集中でない場合のみ実行
             if not self.editor.is_editing():
-                self.persistence.on_save()
-                self.show_status_message("Saved automatically", 1000)
+                if self.persistence.on_save():
+                    self.show_status_message("Saved automatically", 1000)
         
         # 次のタイマーをセット
         self._start_auto_save_timer()
