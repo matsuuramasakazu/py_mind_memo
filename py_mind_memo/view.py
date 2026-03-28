@@ -234,6 +234,7 @@ class MindMapView:
                         node = self.model.find_node_by_id(t)
                         if node:
                             node.collapsed = not node.collapsed
+                            self.model.is_modified = True
                             self.selected_node = node
                             self.render()
                             return True
