@@ -30,24 +30,64 @@ class TestAutoSave(unittest.TestCase):
         self.view.persistence.current_file_path = "test.json"
         self.view.model.is_modified = True
         self.view.editor.is_editing.return_value = False
-        self.view.persistence.on_save.return_value = True
         
-        self.view._auto_save_check()
-        
-        self.view.persistence.on_save.assert_called_once()
-        # 通知が表示されること
-        self.view.status_bar.config.assert_any_call(text="Saved automatically")
+        with patch('threading.Thread') as mock_thread:
+            # ターゲット関数を即座に実行する
+            def start_side_effect():
+                target = mock_thread.call_args.kwargs['target']
+                target()
+            mock_thread.return_value.start.side_effect = start_side_effect
 
-        # 1000ms後の消去予約の検証
-        # _auto_save_check内では after が2回呼ばれる (通知消去: 1000ms, 次のループ: 10000ms)
-        calls = self.root.after.call_args_list
-        status_clear_call = next(c for c in calls if c.args[0] == 1000)
-        timeout, callback = status_clear_call.args
-        self.assertEqual(timeout, 1000)
+            self.view._auto_save_check()
+            
+            # データのキャプチャと書き込みの検証
+            self.view.persistence._perform_write_to_file.assert_called_once()
+            
+            # メインスレッド処理の結果 (成功時) を手動で呼び出す (after(0, ...) の代わり)
+            # 実際には Thread 内で self.root.after(0, self._on_auto_save_complete, True) が呼ばれる
+            self.root.after.assert_any_call(0, self.view._on_auto_save_complete, True)
+            
+            # 完了処理を直接呼んで通知を検証
+            self.view._on_auto_save_complete(True)
+            self.view.status_bar.config.assert_any_call(text="Saved automatically")
+
+            # 1000ms後の消去予約の検証
+            calls = self.root.after.call_args_list
+            status_clear_call = next(c for c in calls if c.args[0] == 1000)
+            timeout, callback = status_clear_call.args
+            self.assertEqual(timeout, 1000)
+            
+            # コールバックを実行して消去されることを確認
+            callback()
+            self.view.status_bar.config.assert_called_with(text="")
+
+    def test_auto_save_check_does_not_notify_on_failure(self):
+        """保存失敗時に通知が表示されないこと"""
+        self.view.persistence.current_file_path = "test.json"
+        self.view.model.is_modified = True
+        self.view.editor.is_editing.return_value = False
+        # 書き込み例外を発生させる
+        self.view.persistence._perform_write_to_file.side_effect = Exception("error")
         
-        # コールバックを実行して消去されることを確認
-        callback()
-        self.view.status_bar.config.assert_called_with(text="")
+        with patch('threading.Thread') as mock_thread:
+            def start_side_effect():
+                target = mock_thread.call_args.kwargs['target']
+                target()
+            mock_thread.return_value.start.side_effect = start_side_effect
+
+            self.view._auto_save_check()
+            
+            # 失敗時は True ではなく False で after が呼ばれる
+            self.root.after.assert_any_call(0, self.view._on_auto_save_complete, False)
+            
+            # 完了処理(失敗)を実行
+            self.view.status_bar.config.reset_mock()
+            self.view._on_auto_save_complete(False)
+            
+            # 通知（Saved automatically）が呼ばれていないこと
+            for call in self.view.status_bar.config.call_args_list:
+                if call.kwargs.get('text') == "Saved automatically":
+                    self.fail("Status message shown on failure")
 
     def test_auto_save_check_does_not_call_on_save_when_not_modified(self):
         """変更がない場合は保存が実行されないこと"""
@@ -56,7 +96,7 @@ class TestAutoSave(unittest.TestCase):
         
         self.view._auto_save_check()
         
-        self.view.persistence.on_save.assert_not_called()
+        self.view.persistence._perform_write_to_file.assert_not_called()
 
     def test_auto_save_check_does_not_call_on_save_when_no_path(self):
         """ファイルパスがない（一度も保存されていない）場合は保存が実行されないこと"""
@@ -65,7 +105,7 @@ class TestAutoSave(unittest.TestCase):
         
         self.view._auto_save_check()
         
-        self.view.persistence.on_save.assert_not_called()
+        self.view.persistence._perform_write_to_file.assert_not_called()
 
     def test_auto_save_check_does_not_call_on_save_when_editing(self):
         """ノード編集中は保存が実行されないこと"""
@@ -75,7 +115,7 @@ class TestAutoSave(unittest.TestCase):
         
         self.view._auto_save_check()
         
-        self.view.persistence.on_save.assert_not_called()
+        self.view.persistence._perform_write_to_file.assert_not_called()
 
     def test_after_is_called_again(self):
         """_auto_save_check の最後で再び after が呼ばれ、ループが継続すること"""

@@ -1,5 +1,6 @@
 import tkinter as tk
 import os
+import threading
 from .models import MindMapModel, Node, Reference
 from .graphics import GraphicsEngine
 from .layout import LayoutEngine
@@ -88,6 +89,8 @@ class MindMapView:
         # ステータスバーの追加
         self.status_bar = tk.Label(self.root, text="", bd=1, relief=tk.SUNKEN, anchor=tk.W)
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        self._is_saving = False
         
         self.first_render = True
         self.render()
@@ -703,12 +706,31 @@ class MindMapView:
         self.root.after(10000, self._auto_save_check)
 
     def _auto_save_check(self):
-        # ファイルパスが設定されており、変更があり、かつ編集中でない場合のみ保存
+        # ファイルパスが設定されており、変更があり、かつ編集中・保存中でない場合のみ保存
         if (self.persistence.current_file_path and 
             self.model.is_modified and 
-            not self.editor.is_editing()):
-            if self.persistence.on_save():
-                self.show_status_message("Saved automatically", 1000)
+            not self.editor.is_editing() and
+            not self._is_saving):
+            
+            self._is_saving = True
+            # メインスレッドでデータをキャプチャ
+            data = self.model.save()
+            file_path = self.persistence.current_file_path
+            
+            def run_save():
+                try:
+                    self.persistence._perform_write_to_file(file_path, data)
+                    self.root.after(0, self._on_auto_save_complete, True)
+                except Exception:
+                    self.root.after(0, self._on_auto_save_complete, False)
+
+            threading.Thread(target=run_save, daemon=True).start()
         
         # 次のタイマーをセット
         self._start_auto_save_timer()
+
+    def _on_auto_save_complete(self, success):
+        self._is_saving = False
+        if success:
+            self.model.is_modified = False
+            self.show_status_message("Saved automatically", 1000)

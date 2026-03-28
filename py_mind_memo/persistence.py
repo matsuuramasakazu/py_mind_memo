@@ -41,14 +41,18 @@ class PersistenceHandler:
         """共通のファイル書き込み処理"""
         try:
             data = self.model.save()
-            with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
+            self._perform_write_to_file(file_path, data)
             self.current_file_path = file_path
             self.model.is_modified = False
             return True
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save to {file_path}: {e}")
             return False
+
+    def _perform_write_to_file(self, file_path, data):
+        """実際のファイル書き込みのみを行い、UI・モデル状態管理には関与しない"""
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
 
     def on_open(self, event=None):
         file_path = filedialog.askopenfilename(
