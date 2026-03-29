@@ -52,6 +52,8 @@ class Node:
         self.collapsed = False
         self.image_data: Optional[str] = None  # Base64 encoded PNG data
         self.image_path: Optional[str] = None  # Original image file path
+        self.icon_data: Optional[str] = None   # Base64 encoded PNG data for icon
+        self.icon_path: Optional[str] = None   # Original image file path for icon
 
     def add_child(self, text: str, direction: Optional[str] = None) -> 'Node':
         child = Node(text, parent=self)
@@ -110,6 +112,8 @@ class Node:
             "collapsed": self.collapsed,
             "image_data": self.image_data,
             "image_path": self.image_path,
+            "icon_data": self.icon_data,
+            "icon_path": self.icon_path,
             "children": [child.to_dict() for child in self.children]
         }
 
@@ -123,6 +127,8 @@ class Node:
         node.collapsed = data.get("collapsed", False)
         node.image_data = data.get("image_data")
         node.image_path = data.get("image_path")
+        node.icon_data = data.get("icon_data")
+        node.icon_path = data.get("icon_path")
         for child_data in data.get("children", []):
             child = cls.from_dict(child_data, parent=node)
             node.children.append(child)
