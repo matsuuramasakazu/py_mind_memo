@@ -6,6 +6,9 @@ import hashlib
 import logging
 from typing import Dict
 from .models import Node, Reference
+
+logger = logging.getLogger(__name__)
+
 from .constants import (
     COLOR_TEXT, COLOR_ROOT_OUTLINE, COLOR_ROOT_FILL,
     COLOR_HIGHLIGHT_FILL, COLOR_HIGHLIGHT_OUTLINE,
@@ -169,6 +172,16 @@ class GraphicsEngine:
 
         return all_wrapped_lines
 
+    def _compute_first_line_width(self, wrapped_lines, family, size):
+        for line_segments in wrapped_lines:
+            if not line_segments:
+                continue
+            line_w = 0
+            for txt, style, _, _ in line_segments:
+                line_w += self._get_font(family, size, style).measure(txt)
+            return line_w
+        return 0
+
     def get_text_size(self, node: Node, base_font, max_width: int = 250):
         """マルチラインとマークアップ、自動折り返しを考慮したサイズ計算（画像分も含む）"""
         # キャッシュチェック（テキストとフォント、画像データに変更がなければキャッシュを返す）
@@ -211,7 +224,7 @@ class GraphicsEngine:
                     photo = tk.PhotoImage(data=base64.b64decode(node.image_data))
                     self.image_cache[node.id] = (photo, current_data_hash)
                 except Exception as e:
-                    logging.warning("Failed to decode image for node %s (data hash %s): %s", node.id, current_data_hash, e)
+                    logger.warning("Failed to decode image for node %s (data hash %s): %s", node.id, current_data_hash, e)
             if photo:
                 img_w = photo.width()
                 img_h = photo.height() + IMAGE_SPACING
@@ -231,7 +244,7 @@ class GraphicsEngine:
                     photo = tk.PhotoImage(data=base64.b64decode(icon_data))
                     self.icon_cache[node.id] = (photo, current_icon_hash)
                 except Exception as e:
-                    logging.warning("Failed to decode icon for node %s (icon hash %s): %s", node.id, current_icon_hash, e)
+                    logger.warning("Failed to decode icon for node %s (icon hash %s): %s", node.id, current_icon_hash, e)
             if photo:
                 icon_w = photo.width() + IMAGE_SPACING
                 icon_h = photo.height()
@@ -241,8 +254,7 @@ class GraphicsEngine:
         
         max_w = 0
         total_h = 0
-        first_line_w = 0
-        is_first_line = True
+        first_line_w = self._compute_first_line_width(wrapped_lines, family, size)
         
         def get_font_metrics(style):
             return self._get_font(family, size, style)
@@ -259,10 +271,6 @@ class GraphicsEngine:
                 f_obj = get_font_metrics(style)
                 line_w += f_obj.measure(txt)
                 line_max_h = max(line_max_h, f_obj.metrics("linespace"))
-            
-            if is_first_line:
-                first_line_w = line_w
-                is_first_line = False
 
             max_w = max(max_w, line_w)
             total_h += (line_max_h if line_max_h > 0 else size + 10)
@@ -282,15 +290,12 @@ class GraphicsEngine:
         w, h = self.get_text_size(node, base_font)
         
         text_block_w = 0
-        first_line_w = 0
-        is_first_line = True
+        first_line_w = self._compute_first_line_width(wrapped_lines, family, size)
+        
         for line_segments in wrapped_lines:
             line_w = 0
             for txt, style, _, _ in line_segments:
                 line_w += self._get_font(family, size, style).measure(txt)
-            if is_first_line:
-                first_line_w = line_w
-                is_first_line = False
             text_block_w = max(text_block_w, line_w)
         
         # 1. 画像とアイコンの描画
@@ -746,17 +751,7 @@ class GraphicsEngine:
         self.image_items.clear()
         self.icon_items.clear()
         
-        for photo, _ in self.image_cache.values():
-            try:
-                photo.__del__()
-            except Exception:
-                pass
         self.image_cache.clear()
-        
-        for photo, _ in self.icon_cache.values():
-            try:
-                photo.__del__()
-            except Exception:
-                pass
         self.icon_cache.clear()
+
 
