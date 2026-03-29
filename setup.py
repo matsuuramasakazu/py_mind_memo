@@ -9,6 +9,9 @@ setup(
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     url="https://github.com/matsuuramasakazu/py_mind_memo",
+    project_urls={
+        "Change Log": "https://github.com/matsuuramasakazu/py_mind_memo/releases",
+    },
     packages=find_packages(),
     package_data={
         "py_mind_memo": ["assets/icons/*.png"],

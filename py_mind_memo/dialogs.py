@@ -25,34 +25,33 @@ class IconPickerDialog(tk.Toplevel):
         
         if not os.path.exists(icons_dir):
             tk.Label(main_frame, text=f"アイコンディレクトリが見つかりません: {icons_dir}").pack()
-            return
-
-        row = 0
-        col = 0
-        max_cols = 5
-        
-        has_icons = False
-        for file in os.listdir(icons_dir):
-            if file.lower().endswith(".png"):
-                file_path = os.path.join(icons_dir, file)
-                try:
-                    photo = tk.PhotoImage(file=file_path)
-                    # ICON_SIZE 以下の画像のみを表示対象とする
-                    if photo.width() <= ICON_SIZE and photo.height() <= ICON_SIZE:
-                        has_icons = True
-                        self.photos[file_path] = photo
-                        btn = tk.Button(main_frame, image=photo, command=lambda p=file_path, ph=photo: self.on_select(p, ph), cursor="hand2")
-                        btn.grid(row=row, column=col, padx=4, pady=4)
-                        col += 1
-                        if col >= max_cols:
-                            col = 0
-                            row += 1
-                except tk.TclError:
-                    pass
-                    
-        if not has_icons:
-            tk.Label(main_frame, text="利用可能なアイコンがありません。").pack()
+        else:
+            row = 0
+            col = 0
+            max_cols = 5
             
+            has_icons = False
+            for file in os.listdir(icons_dir):
+                if file.lower().endswith(".png"):
+                    file_path = os.path.join(icons_dir, file)
+                    try:
+                        photo = tk.PhotoImage(file=file_path)
+                        # ICON_SIZE 以下の画像のみを表示対象とする
+                        if photo.width() <= ICON_SIZE and photo.height() <= ICON_SIZE:
+                            has_icons = True
+                            self.photos[file_path] = photo
+                            btn = tk.Button(main_frame, image=photo, command=lambda p=file_path, ph=photo: self.on_select(p, ph), cursor="hand2")
+                            btn.grid(row=row, column=col, padx=4, pady=4)
+                            col += 1
+                            if col >= max_cols:
+                                col = 0
+                                row += 1
+                    except tk.TclError:
+                        pass
+                        
+            if not has_icons:
+                tk.Label(main_frame, text="利用可能なアイコンがありません。").pack()
+                
         btn_frame = tk.Frame(self)
         btn_frame.pack(fill=tk.X, pady=10)
         

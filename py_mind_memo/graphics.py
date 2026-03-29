@@ -234,6 +234,11 @@ class GraphicsEngine:
         family = base_font[0]
         size = base_font[1]
         
+        max_w = 0
+        total_h = 0
+        first_line_w = 0
+        is_first_line = True
+        
         def get_font_metrics(style):
             return self._get_font(family, size, style)
 
@@ -250,10 +255,14 @@ class GraphicsEngine:
                 line_w += f_obj.measure(txt)
                 line_max_h = max(line_max_h, f_obj.metrics("linespace"))
             
+            if is_first_line:
+                first_line_w = line_w
+                is_first_line = False
+
             max_w = max(max_w, line_w)
             total_h += (line_max_h if line_max_h > 0 else size + 10)
             
-        result = (max(100, max_w + icon_w + 20, img_w + 20), max(35, total_h + 12 + img_h, icon_h + 12 + img_h))
+        result = (max(100, max_w, first_line_w + icon_w + 20, img_w + 20), max(35, total_h + 12 + img_h, icon_h + 12 + img_h))
             
         # キャッシュに保存
         node._size_cache = result
@@ -268,14 +277,19 @@ class GraphicsEngine:
         w, h = self.get_text_size(node, base_font)
         
         text_block_w = 0
+        first_line_w = 0
+        is_first_line = True
         for line_segments in wrapped_lines:
             line_w = 0
             for txt, style, _, _ in line_segments:
                 line_w += self._get_font(family, size, style).measure(txt)
+            if is_first_line:
+                first_line_w = line_w
+                is_first_line = False
             text_block_w = max(text_block_w, line_w)
         
         # 1. 画像とアイコンの描画
-        img_w_offset, img_h_offset = self._draw_node_media(x, y, text_block_w, h, node, tags)
+        img_w_offset, img_h_offset = self._draw_node_media(x, y, text_block_w, first_line_w, h, node, tags)
 
         # 2. テキストの描画開始位置
         curr_y = y - h/2 + 10 + img_h_offset
@@ -294,7 +308,7 @@ class GraphicsEngine:
             
         return item_ids
 
-    def _draw_node_media(self, x, y, text_block_w, total_h, node, tags) -> tuple:
+    def _draw_node_media(self, x, y, text_block_w, first_line_w, total_h, node, tags) -> tuple:
         """ノードに設定された画像とアイコンを描画し、テキストに必要なオフセット(w_offset, h_offset)を返す"""
         h_offset = 0.0
         w_offset = 0.0
@@ -314,15 +328,18 @@ class GraphicsEngine:
             photo, _ = self.icon_cache[node.id]
             img_w = photo.width()
             img_tags = list(tags) + ["node_icon"]
+            w_offset = img_w + IMAGE_SPACING
             
-            # テキスト全体の左側に配置。テキストはテキストブロック+アイコン幅を考慮した領域になるため
-            content_left = x - (text_block_w + img_w + IMAGE_SPACING) / 2
-            icon_x = content_left + img_w / 2
+            # テキスト全体は w_offset / 2 だけ右にシフトされる。
+            # 一行目のテキストの左端 (first_line_left) に合わせてアイコンを配置する。
+            center_x = x + w_offset / 2
+            first_line_left = center_x - first_line_w / 2
+            icon_x = first_line_left - IMAGE_SPACING - img_w / 2
+            
             # Y位置は上部の画像分のオフセットを考慮
             icon_y = y - total_h / 2 + 10 + h_offset + photo.height() / 2
             img_id = self.canvas.create_image(icon_x, icon_y, image=photo, tags=tuple(img_tags))
             self.icon_items[node.id] = img_id
-            w_offset = img_w + IMAGE_SPACING
             
         return w_offset, h_offset
 
