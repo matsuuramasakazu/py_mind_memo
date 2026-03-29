@@ -8,6 +8,7 @@ from .editor import NodeEditor
 from .drag_drop import DragDropHandler
 from .navigation import KeyboardNavigator
 from .persistence import PersistenceHandler
+from .dialogs import IconPickerDialog
 from tkinter import messagebox
 from .constants import (
     DEFAULT_LOGICAL_CENTER_X, DEFAULT_LOGICAL_CENTER_Y,
@@ -73,6 +74,7 @@ class MindMapView:
         bind_key("<F2>", self.on_edit_node)
         bind_key("<Delete>", self.on_delete)
         bind_key("<Control-r>", self.on_toggle_reference_mode)
+        bind_key("<Control-i>", self.on_insert_icon)
         bind_key("<Control-s>", self.persistence.on_save)
         bind_key("<Control-S>", self.persistence.on_save_as) # Ctrl+Shift+S
         bind_key("<Control-o>", self.persistence.on_open)
@@ -576,6 +578,30 @@ class MindMapView:
             self.root.title("py_mind_memo - Mindmap like Tool [Reference Mode]")
             self.canvas.config(cursor="crosshair")
         self.render()
+        return "break"
+
+    def on_insert_icon(self, event):
+        if self.editor.is_editing(): return
+        if not self.selected_node: return
+        
+        dialog = IconPickerDialog(self.root)
+        path, photo = dialog.show()
+        
+        if path == "CLEAR":
+            self.selected_node.icon_data = None
+            self.selected_node.icon_path = None
+            self.model.is_modified = True
+            self.render()
+        elif path and photo:
+            try:
+                base64_data = self.editor.image_handler.base64_from_photo(photo)
+                self.selected_node.icon_data = base64_data
+                self.selected_node.icon_path = path
+                self.model.is_modified = True
+                self.render()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to insert icon: {e}")
+                
         return "break"
 
     def _create_menu(self):

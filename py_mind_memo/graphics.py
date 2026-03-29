@@ -26,6 +26,8 @@ class GraphicsEngine:
         self.image_items: Dict[str, int] = {}
         self.reference_items: Dict[str, list] = {} # ref_id -> list of item ids (line and handles)
         self.image_cache: Dict[str, tk.PhotoImage] = {}  # GC防止用のキャッシュ
+        self.icon_cache: Dict[str, tk.PhotoImage] = {}
+        self.icon_items: Dict[str, int] = {}
         
         # 定数
         self.BEZIER_STEPS = 15
@@ -175,8 +177,13 @@ class GraphicsEngine:
             hashlib.blake2b(node.image_data.encode("utf-8"), digest_size=12).hexdigest()
             if node.image_data else None
         )
-        cache_key = (node.text, font_key, image_key)
-        if hasattr(node, '_size_cache') and node._size_cache_key == cache_key:
+        icon_data = getattr(node, 'icon_data', None)
+        icon_key = (
+            hashlib.blake2b(icon_data.encode("utf-8"), digest_size=12).hexdigest()
+            if icon_data else None
+        )
+        cache_key = (node.text, font_key, image_key, icon_key)
+        if hasattr(node, '_size_cache') and getattr(node, '_size_cache_key', None) == cache_key:
             return node._size_cache
 
         wrapped_lines = self._wrap_rich_text(node.text, base_font, max_width)
@@ -187,31 +194,42 @@ class GraphicsEngine:
         # 画像のサイズを取得
         img_w = 0
         img_h = 0
-        is_icon = False
         if node.image_data:
             current_data_hash = hash(node.image_data)
             photo = None
-
             if node.id in self.image_cache:
                 cached_photo, cached_data_hash = self.image_cache[node.id]
-                if cached_data_hash == current_data_hash:
-                    photo = cached_photo
+                if cached_data_hash == current_data_hash: photo = cached_photo
             
             if photo is None:
                 try:
                     photo = tk.PhotoImage(data=base64.b64decode(node.image_data))
                     self.image_cache[node.id] = (photo, current_data_hash)
                 except Exception:
-                    photo = None
-            
+                    pass
             if photo:
-                is_icon = (photo.width() == ICON_SIZE and photo.height() == ICON_SIZE)
-                if is_icon:
-                    img_w = photo.width() + IMAGE_SPACING
-                    # アイコンの場合は高さには加算しない
-                else:
-                    img_w = photo.width()
-                    img_h = photo.height() + IMAGE_SPACING # spacing
+                img_w = photo.width()
+                img_h = photo.height() + IMAGE_SPACING
+        
+        # アイコンのサイズを取得
+        icon_w = 0
+        icon_h = 0
+        if icon_data:
+            current_icon_hash = hash(icon_data)
+            photo = None
+            if node.id in self.icon_cache:
+                cached_photo, cached_data_hash = self.icon_cache[node.id]
+                if cached_data_hash == current_icon_hash: photo = cached_photo
+            
+            if photo is None:
+                try:
+                    photo = tk.PhotoImage(data=base64.b64decode(icon_data))
+                    self.icon_cache[node.id] = (photo, current_icon_hash)
+                except Exception:
+                    pass
+            if photo:
+                icon_w = photo.width() + IMAGE_SPACING
+                icon_h = photo.height()
         
         family = base_font[0]
         size = base_font[1]
@@ -230,16 +248,12 @@ class GraphicsEngine:
             for txt, style, underline, color in line_segments:
                 f_obj = get_font_metrics(style)
                 line_w += f_obj.measure(txt)
-                # フォントの高さ（アセント+ディセント）をベースにする
                 line_max_h = max(line_max_h, f_obj.metrics("linespace"))
             
             max_w = max(max_w, line_w)
             total_h += (line_max_h if line_max_h > 0 else size + 10)
             
-        if is_icon:
-            result = max(100, max_w + img_w + ICON_PADDING * 2), max(35, total_h + 12)
-        else:
-            result = max(100, max(max_w + 20, img_w + 20)), max(35, total_h + 12 + img_h)
+        result = max(100, max(max_w + icon_w + 20, img_w + 20)), max(35, max(total_h, icon_h) + 12 + img_h)
             
         # キャッシュに保存
         node._size_cache = result
@@ -260,8 +274,8 @@ class GraphicsEngine:
                 line_w += self._get_font(family, size, style).measure(txt)
             text_block_w = max(text_block_w, line_w)
         
-        # 1. 画像の描画
-        img_w_offset, img_h_offset = self._draw_node_image(x, y, text_block_w, h, node, tags)
+        # 1. 画像とアイコンの描画
+        img_w_offset, img_h_offset = self._draw_node_media(x, y, text_block_w, h, node, tags)
 
         # 2. テキストの描画開始位置
         curr_y = y - h/2 + 10 + img_h_offset
@@ -280,27 +294,37 @@ class GraphicsEngine:
             
         return item_ids
 
-    def _draw_node_image(self, x, y, text_block_w, total_h, node, tags) -> tuple:
-        """ノードに設定された画像をテキスト上部に描画し、占有した高さと幅のオフセットを返す (w_offset, h_offset)"""
+    def _draw_node_media(self, x, y, text_block_w, total_h, node, tags) -> tuple:
+        """ノードに設定された画像とアイコンを描画し、テキストに必要なオフセット(w_offset, h_offset)を返す"""
+        h_offset = 0.0
+        w_offset = 0.0
+        
+        # 1. 画像の描画（上部）
         if node.image_data and node.id in self.image_cache:
             photo, _ = self.image_cache[node.id]
-            img_w = photo.width()
             img_h = photo.height()
             img_tags = list(tags) + ["node_image"]
+            img_id = self.canvas.create_image(x, y - total_h/2 + 10 + img_h/2, image=photo, tags=tuple(img_tags))
+            self.image_items[node.id] = img_id
+            h_offset = img_h + IMAGE_SPACING
+        
+        # 2. アイコンの描画（左側）
+        icon_data = getattr(node, "icon_data", None)
+        if icon_data and node.id in self.icon_cache:
+            photo, _ = self.icon_cache[node.id]
+            img_w = photo.width()
+            img_tags = list(tags) + ["node_icon"]
             
-            if img_w == ICON_SIZE and img_h == ICON_SIZE:
-                # アイコン表示：テキスト全体の左側に配置
-                content_left = x - (text_block_w + img_w + IMAGE_SPACING) / 2
-                icon_x = content_left + img_w / 2
-                icon_y = y - total_h / 2 + 20
-                img_id = self.canvas.create_image(icon_x, icon_y, image=photo, tags=tuple(img_tags))
-                self.image_items[node.id] = img_id
-                return img_w + IMAGE_SPACING, 0.0
-            else:
-                img_id = self.canvas.create_image(x, y - total_h/2 + 10 + img_h/2, image=photo, tags=tuple(img_tags))
-                self.image_items[node.id] = img_id
-                return 0.0, img_h + IMAGE_SPACING
-        return 0.0, 0.0
+            # テキスト全体の左側に配置。テキストはテキストブロック+アイコン幅を考慮した領域になるため
+            content_left = x - (text_block_w + img_w + IMAGE_SPACING) / 2
+            icon_x = content_left + img_w / 2
+            # Y位置は上部の画像分のオフセットを考慮
+            icon_y = y - total_h / 2 + 10 + h_offset + photo.height() / 2
+            img_id = self.canvas.create_image(icon_x, icon_y, image=photo, tags=tuple(img_tags))
+            self.icon_items[node.id] = img_id
+            w_offset = img_w + IMAGE_SPACING
+            
+        return w_offset, h_offset
 
     def _draw_text_line(self, center_x, curr_y, line_segments, family, size, tags):
         """1行分のリッチテキスト（複数セグメント）を中央寄せで描画し、描画アイテムIDと行高さを返す"""
