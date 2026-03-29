@@ -31,7 +31,7 @@ class IconPickerDialog(tk.Toplevel):
             max_cols = 5
             
             has_icons = False
-            for file in os.listdir(icons_dir):
+            for file in sorted(os.listdir(icons_dir)):
                 if file.lower().endswith(".png"):
                     file_path = os.path.join(icons_dir, file)
                     try:
@@ -76,6 +76,6 @@ class IconPickerDialog(tk.Toplevel):
             self.geometry(f"+{x}+{y}")
         except (AttributeError, tk.TclError) as e:
             import logging
-            logging.getLogger(__name__).warning("Dialog centering failed: " + str(e))
+            logging.getLogger(__name__).warning("Dialog centering failed: %s", e)
         self.wait_window(self)
         return self.result_path, self.result_photo

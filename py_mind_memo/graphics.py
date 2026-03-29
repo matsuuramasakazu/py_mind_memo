@@ -3,6 +3,7 @@ import tkinter.font as tkfont
 import base64
 import re
 import hashlib
+import logging
 from typing import Dict
 from .models import Node, Reference
 from .constants import (
@@ -205,8 +206,8 @@ class GraphicsEngine:
                 try:
                     photo = tk.PhotoImage(data=base64.b64decode(node.image_data))
                     self.image_cache[node.id] = (photo, current_data_hash)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.warning("Failed to decode image for node %s (data hash %s): %s", node.id, current_data_hash, e)
             if photo:
                 img_w = photo.width()
                 img_h = photo.height() + IMAGE_SPACING
@@ -225,8 +226,8 @@ class GraphicsEngine:
                 try:
                     photo = tk.PhotoImage(data=base64.b64decode(icon_data))
                     self.icon_cache[node.id] = (photo, current_icon_hash)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.warning("Failed to decode icon for node %s (icon hash %s): %s", node.id, current_icon_hash, e)
             if photo:
                 icon_w = photo.width() + IMAGE_SPACING
                 icon_h = photo.height()
@@ -289,7 +290,7 @@ class GraphicsEngine:
             text_block_w = max(text_block_w, line_w)
         
         # 1. 画像とアイコンの描画
-        img_w_offset, img_h_offset = self._draw_node_media(x, y, text_block_w, first_line_w, h, node, tags)
+        img_w_offset, img_h_offset = self._draw_node_media(x, y, first_line_w, h, node, tags)
 
         # 2. テキストの描画開始位置
         curr_y = y - h/2 + 10 + img_h_offset
@@ -308,7 +309,7 @@ class GraphicsEngine:
             
         return item_ids
 
-    def _draw_node_media(self, x, y, text_block_w, first_line_w, total_h, node, tags) -> tuple:
+    def _draw_node_media(self, x, y, first_line_w, total_h, node, tags) -> tuple:
         """ノードに設定された画像とアイコンを描画し、テキストに必要なオフセット(w_offset, h_offset)を返す"""
         h_offset = 0.0
         w_offset = 0.0
