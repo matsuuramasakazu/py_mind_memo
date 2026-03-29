@@ -185,7 +185,11 @@ class GraphicsEngine:
         )
         cache_key = (node.text, font_key, image_key, icon_key)
         if hasattr(node, '_size_cache') and getattr(node, '_size_cache_key', None) == cache_key:
-            return node._size_cache
+            cache_valid = True
+            if node.image_data and node.id not in self.image_cache: cache_valid = False
+            if icon_data and node.id not in self.icon_cache: cache_valid = False
+            if cache_valid:
+                return node._size_cache
 
         wrapped_lines = self._wrap_rich_text(node.text, base_font, max_width)
         
@@ -741,4 +745,18 @@ class GraphicsEngine:
         self.reference_items.clear()
         self.image_items.clear()
         self.icon_items.clear()
+        
+        for photo, _ in self.image_cache.values():
+            try:
+                photo.__del__()
+            except Exception:
+                pass
+        self.image_cache.clear()
+        
+        for photo, _ in self.icon_cache.values():
+            try:
+                photo.__del__()
+            except Exception:
+                pass
+        self.icon_cache.clear()
 
