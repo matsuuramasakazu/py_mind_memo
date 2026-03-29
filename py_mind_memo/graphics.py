@@ -253,7 +253,7 @@ class GraphicsEngine:
             max_w = max(max_w, line_w)
             total_h += (line_max_h if line_max_h > 0 else size + 10)
             
-        result = max(100, max(max_w + icon_w + 20, img_w + 20)), max(35, max(total_h, icon_h) + 12 + img_h)
+        result = (max(100, max_w + icon_w + 20, img_w + 20), max(35, total_h + 12 + img_h, icon_h + 12 + img_h))
             
         # キャッシュに保存
         node._size_cache = result
@@ -396,6 +396,9 @@ class GraphicsEngine:
         if node.id in self.image_items:
             self.canvas.delete(self.image_items[node.id])
             del self.image_items[node.id]
+        if node.id in self.icon_items:
+            self.canvas.delete(self.icon_items[node.id])
+            del self.icon_items[node.id]
         
         items = []
         color = self._get_node_color(node)
@@ -718,4 +721,6 @@ class GraphicsEngine:
         self.text_items.clear()
         self.line_items.clear()
         self.reference_items.clear()
+        self.image_items.clear()
+        self.icon_items.clear()
 

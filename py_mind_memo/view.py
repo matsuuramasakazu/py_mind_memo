@@ -581,8 +581,10 @@ class MindMapView:
         return "break"
 
     def on_insert_icon(self, event):
-        if self.editor.is_editing(): return
-        if not self.selected_node: return
+        if self.editor.is_editing():
+            return
+        if not self.selected_node:
+            return
         
         dialog = IconPickerDialog(self.root)
         path, photo = dialog.show()

@@ -1,6 +1,5 @@
 import os
 import tkinter as tk
-from tkinter import ttk
 from .constants import ICON_SIZE
 
 class IconPickerDialog(tk.Toplevel):
@@ -76,7 +75,8 @@ class IconPickerDialog(tk.Toplevel):
             x = parent.winfo_x() + (parent.winfo_width() - self.winfo_reqwidth()) // 2
             y = parent.winfo_y() + (parent.winfo_height() - self.winfo_reqheight()) // 2
             self.geometry(f"+{x}+{y}")
-        except Exception:
-            pass
+        except (AttributeError, tk.TclError) as e:
+            import logging
+            logging.getLogger(__name__).warning("Dialog centering failed: " + str(e))
         self.wait_window(self)
         return self.result_path, self.result_photo
