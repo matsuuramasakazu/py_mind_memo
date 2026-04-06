@@ -368,6 +368,8 @@ class MindMapView:
         self.selected_node = self.navigator.navigate(self.selected_node, direction)
         
         if old_node == self.selected_node:
+            if self.selected_node:
+                self.ensure_node_visible(self.selected_node, force_center=True)
             return
 
         needs_full_render = False
@@ -376,11 +378,11 @@ class MindMapView:
             while curr:
                 if curr.collapsed:
                     curr.collapsed = False
-                    self.model.is_modified = True
                     needs_full_render = True
                 curr = curr.parent
 
         if needs_full_render:
+            self.model.is_modified = True
             self.render(force_center=True)
         else:
             # 画面全体ではなくトピックの枠のみ再描画する
