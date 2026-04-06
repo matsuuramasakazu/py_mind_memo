@@ -367,13 +367,30 @@ class MindMapView:
         old_node = self.selected_node
         self.selected_node = self.navigator.navigate(self.selected_node, direction)
         
-        # 画面全体ではなくトピックの枠のみ再描画する
-        if old_node and old_node != self.selected_node:
-            self.graphics.draw_node(old_node, is_selected=False)
-        if self.selected_node:
-            self.graphics.draw_node(self.selected_node, is_selected=True)
-            self.ensure_node_visible(self.selected_node, force_center=True)
+        if old_node == self.selected_node:
+            return
+
+        needs_full_render = False
+        if self.selected_node and self.selected_node.parent:
+            curr = self.selected_node.parent
+            while curr:
+                if curr.collapsed:
+                    curr.collapsed = False
+                    self.model.is_modified = True
+                    needs_full_render = True
+                curr = curr.parent
+
+        if needs_full_render:
+            self.render(force_center=True)
         else:
+            # 画面全体ではなくトピックの枠のみ再描画する
+            if old_node:
+                self.graphics.draw_node(old_node, is_selected=False)
+            if self.selected_node:
+                self.graphics.draw_node(self.selected_node, is_selected=True)
+                self.ensure_node_visible(self.selected_node, force_center=True)
+        
+        if not self.selected_node and not needs_full_render:
             self.render(force_center=True)
 
     def _close_enlarged_image_windows(self):
