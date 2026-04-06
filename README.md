@@ -27,7 +27,7 @@ XMindのような快適なキーボード操作と、モダンで美しいビジ
 Python 3.8以上が必要です。
 
 ```bash
-# pip install py_mind_memo
+pip install py_mind_memo
 py_mind_memo
 ```
 
