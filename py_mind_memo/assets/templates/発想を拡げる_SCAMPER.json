@@ -1,0 +1,100 @@
+{
+    "root": {
+        "id": "52172145-a054-4b6e-a047-d447a39b9274",
+        "text": "SCAMPER\n中心トピック：検討対象\n対象が曖昧だと効果が弱いので、ゼロから考えるのには使わない。\n既存のアイデアや別のブレスト手法の成果物から検討対象を具体的に定めて、それを操作して発想を広げる。ここで挙げたすべての要素を強制的に回すことで発想の偏りが出ないようにする。質より量で良し悪しは評価しない。",
+        "direction": null,
+        "color": null,
+        "collapsed": false,
+        "image_data": null,
+        "image_path": null,
+        "icon_data": null,
+        "icon_path": null,
+        "children": [
+            {
+                "id": "6203125d-c828-42a9-b413-2d85e0ca23e5",
+                "text": "別のものに置き換えられるか？",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "49a1dcb2-7a29-491c-a9d9-a48824f595d6",
+                "text": "異なる要素を結合できないか？",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "76b62ad0-68f6-4df7-9fbd-e15312e336c4",
+                "text": "他の成功事例を転用できないか？",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "58f21203-64fc-4661-b989-d44bf16fae23",
+                "text": "形・サイズ・性能を変えられないか？",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "9e8565aa-eca6-4486-baf8-ec74120fccc5",
+                "text": "別の用途に使えないか？",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "05e94c51-ff11-402c-9fc4-df35145b8cdb",
+                "text": "不要なものを取り除けないか？",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "5a6b728b-ad8b-47e8-a42b-c6214646a772",
+                "text": "順序や関係を逆にできないか？",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            }
+        ]
+    },
+    "references": []
+}

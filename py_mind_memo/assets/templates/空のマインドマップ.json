@@ -1,0 +1,15 @@
+{
+    "root": {
+        "id": "1bc2895d-7cda-4aa4-a2d7-1d31f98f763f",
+        "text": "Root Topic",
+        "direction": null,
+        "color": null,
+        "collapsed": false,
+        "image_data": null,
+        "image_path": null,
+        "icon_data": null,
+        "icon_path": null,
+        "children": []
+    },
+    "references": []
+}

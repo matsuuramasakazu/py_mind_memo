@@ -79,3 +79,82 @@ class IconPickerDialog(tk.Toplevel):
             logging.getLogger(__name__).warning("Dialog centering failed: %s", e)
         self.wait_window(self)
         return self.result_path, self.result_photo
+
+class TemplatePickerDialog(tk.Toplevel):
+    def __init__(self, parent):
+        from tkinter import messagebox
+        import os
+        super().__init__(parent)
+        self.title("Select Template")
+        self.result_path = None
+        self.transient(parent)
+        self.grab_set()
+
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.templates_dir = os.path.join(base_dir, "assets", "templates")
+        
+        self.templates = []
+        if os.path.exists(self.templates_dir):
+            for file in sorted(os.listdir(self.templates_dir)):
+                if file.lower().endswith(".json"):
+                    self.templates.append({
+                        "name": os.path.splitext(file)[0],
+                        "path": os.path.join(self.templates_dir, file)
+                    })
+
+        if not self.templates:
+            # Hide the toplevel window immediately before showing messagebox
+            self.withdraw()
+            messagebox.showinfo("Information", "利用可能なテンプレートがありません。", parent=parent)
+            self.destroy()
+            return
+            
+        self._build_ui()
+
+    def _build_ui(self):
+        main_frame = tk.Frame(self, padx=10, pady=10)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(main_frame, text="Select a template:").pack(anchor=tk.W, pady=(0, 5))
+
+        # Listbox for template names
+        self.listbox = tk.Listbox(main_frame, width=40, height=10, selectmode=tk.SINGLE)
+        self.listbox.pack(fill=tk.BOTH, expand=True)
+        
+        for tmpl in self.templates:
+            self.listbox.insert(tk.END, tmpl["name"])
+
+        # Double click to select
+        self.listbox.bind("<Double-Button-1>", lambda e: self.on_ok())
+
+        btn_frame = tk.Frame(self, pady=10)
+        btn_frame.pack(fill=tk.X)
+
+        ok_btn = tk.Button(btn_frame, text="OK", command=self.on_ok, width=10)
+        ok_btn.pack(side=tk.RIGHT, padx=(5, 10))
+
+        cancel_btn = tk.Button(btn_frame, text="Cancel", command=self.destroy, width=10)
+        cancel_btn.pack(side=tk.RIGHT, padx=5)
+
+    def on_ok(self):
+        selection = self.listbox.curselection()
+        if selection:
+            index = selection[0]
+            self.result_path = self.templates[index]["path"]
+        self.destroy()
+
+    def show(self):
+        if not self.winfo_exists():
+            return None
+        self.update_idletasks()
+        try:
+            parent = self.master
+            x = parent.winfo_x() + (parent.winfo_width() - self.winfo_reqwidth()) // 2
+            y = parent.winfo_y() + (parent.winfo_height() - self.winfo_reqheight()) // 2
+            self.geometry(f"+{x}+{y}")
+        except (AttributeError, tk.TclError) as e:
+            import logging
+            logging.getLogger(__name__).warning("Dialog centering failed: %s", e)
+        self.wait_window(self)
+        return self.result_path
+

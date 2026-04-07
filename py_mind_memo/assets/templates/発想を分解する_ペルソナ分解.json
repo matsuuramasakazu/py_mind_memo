@@ -1,0 +1,100 @@
+{
+    "root": {
+        "id": "52172145-a054-4b6e-a047-d447a39b9274",
+        "text": "ペルソナ分解\n中心トピック：ユーザー\nユーザーをペルソナ構成要素で分解してユーザー理解の解像度を上げて、ニーズ・課題を抽出して、アイデアの起点を作ることを目的とする。",
+        "direction": null,
+        "color": null,
+        "collapsed": false,
+        "image_data": null,
+        "image_path": null,
+        "icon_data": null,
+        "icon_path": null,
+        "children": [
+            {
+                "id": "66bddc5f-e867-44e9-b6e3-f347f206f173",
+                "text": "基本属性",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "16db968e-c7e1-4f3a-9dfb-15ae88c70e07",
+                "text": "行動：普段どんな行動をしている？",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "7b1dc049-a329-493e-a778-2fb7dfc7b2b1",
+                "text": "思考：何を基準に判断する？",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "d10aaef3-f73a-4d77-ac67-c44eb2b56359",
+                "text": "感情：何をトリガーに喜び、ストレスを感じ、不安になる？",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "a213a9f6-55d3-4621-9b7b-509da9fd4191",
+                "text": "課題：何に困っている？",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "74f5fff0-7c47-4321-a17a-3cea7299b0f0",
+                "text": "欲求：何を得たい？",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "e571041f-f979-4008-b255-47ad2f36098f",
+                "text": "環境：どこで？いつ？環境制約は？",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            }
+        ]
+    },
+    "references": []
+}

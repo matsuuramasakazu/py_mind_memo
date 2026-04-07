@@ -1,0 +1,308 @@
+{
+    "root": {
+        "id": "b66481cd-83e6-4c29-904a-e66af2776187",
+        "text": "py_mind_memoの操作方法",
+        "direction": null,
+        "color": null,
+        "collapsed": false,
+        "image_data": null,
+        "image_path": null,
+        "icon_data": null,
+        "icon_path": null,
+        "children": [
+            {
+                "id": "872e14c7-0f9a-451e-b665-60b8449f3150",
+                "text": "<b><c:#ff0000>Tab</c></b>：子トピックを追加する",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "c295eaa6-62f2-458b-a1f3-578389cc2e5c",
+                "text": "<b><c:#ff0000>Enter</c></b>：兄弟トピックを追加する",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "d447ad34-a928-4f16-a48d-0dedb1d64a0a",
+                "text": "<b><c:#ff0000>Delete</c></b>：トピックを削除する",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "29bd12e0-dc6f-42ba-b89a-ef36100cfdc6",
+                "text": "<b>F2</b>/<b>ダブルクリック</b>：選択中のトピックを編集する",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": [
+                    {
+                        "id": "a5714988-3054-4933-b9ce-4d51d292ccba",
+                        "text": "<b>Enter</b>：トピックの編集を確定する",
+                        "direction": "right",
+                        "color": null,
+                        "collapsed": false,
+                        "image_data": null,
+                        "image_path": null,
+                        "icon_data": null,
+                        "icon_path": null,
+                        "children": []
+                    },
+                    {
+                        "id": "fb4255fd-1916-43fd-84e7-18e1a4606b79",
+                        "text": "<b>Ctrl+Enter</b>：改行する",
+                        "direction": "right",
+                        "color": null,
+                        "collapsed": false,
+                        "image_data": null,
+                        "image_path": null,
+                        "icon_data": null,
+                        "icon_path": null,
+                        "children": []
+                    },
+                    {
+                        "id": "2a6bcccd-2951-4f1a-867c-51383767c88f",
+                        "text": "<b>Ctri-I</b>：画像（PNG）を挿入する",
+                        "direction": "right",
+                        "color": null,
+                        "collapsed": false,
+                        "image_data": null,
+                        "image_path": null,
+                        "icon_data": null,
+                        "icon_path": null,
+                        "children": []
+                    },
+                    {
+                        "id": "8721e7dd-fe2a-4ff6-9a76-f78e644c03ea",
+                        "text": "テキストの修飾",
+                        "direction": "right",
+                        "color": null,
+                        "collapsed": false,
+                        "image_data": null,
+                        "image_path": null,
+                        "icon_data": null,
+                        "icon_path": null,
+                        "children": [
+                            {
+                                "id": "fd04c834-74b2-451e-9835-1dfed3ef983e",
+                                "text": "< b >太字< /b >：<b>太字</b>\n< i >斜字< /i >：<i>斜字</i>\n< u >下線< /u >：<u>下線</u>\n< c:#119900 >色< /c >：<c:#119900>色</c>",
+                                "direction": "right",
+                                "color": null,
+                                "collapsed": false,
+                                "image_data": null,
+                                "image_path": null,
+                                "icon_data": null,
+                                "icon_path": null,
+                                "children": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "e87648ed-ef57-443f-b35a-b6289309f3e7",
+                "text": "<b>左ドラッグ</b>：トピックを他のトピックの子トピックに移動する",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "7ea4370a-181c-4b82-98f0-e96d4427436d",
+                "text": "<b>Ctrl+↑↓</b>：選択中のトピックを上下に入れ替える",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "6eafc9d0-dbf8-4fce-86c7-ce46a7f9ef78",
+                "text": "<b>分岐</b>を<b>クリック</b>：子トピックを閉じる",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "b094eb1f-5320-4356-8ac2-978b43f6ba8c",
+                "text": "<b>↑↓←→/左クリック</b>：トピック選択を移動する",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "0b81616c-7836-4bd9-b10a-930378f0d6bd",
+                "text": "<b>ホイール</b>：画面の上下スクロール",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "edabb44b-d19b-481b-9f9d-70d3c9ca16bc",
+                "text": "<b>Shift+ホイール</b>：画面の左右スクロール",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "416043c5-5745-402a-96b5-f306fb6c483b",
+                "text": "<b>Ctrl+R</b>：参照関係を編集する/終了する",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": [
+                    {
+                        "id": "77f0cad2-a46a-4b57-9490-27982d537647",
+                        "text": "<b>左クリック</b>：選択中のトピックを参照元にする",
+                        "direction": "left",
+                        "color": null,
+                        "collapsed": false,
+                        "image_data": null,
+                        "image_path": null,
+                        "icon_data": null,
+                        "icon_path": null,
+                        "children": [
+                            {
+                                "id": "7d031094-502f-4cf6-b9d8-1462f410192f",
+                                "text": "<b>左クリック</b>：選択中のトピックを参照先にする",
+                                "direction": "left",
+                                "color": null,
+                                "collapsed": false,
+                                "image_data": null,
+                                "image_path": null,
+                                "icon_data": null,
+                                "icon_path": null,
+                                "children": []
+                            }
+                        ]
+                    },
+                    {
+                        "id": "4775ffea-8f5f-4a44-a76c-e353c9a1baeb",
+                        "text": "<b>操作点</b>を<b>左ドラッグ</b>：参照曲線の操作点を使って曲線を変更する",
+                        "direction": "left",
+                        "color": null,
+                        "collapsed": false,
+                        "image_data": null,
+                        "image_path": null,
+                        "icon_data": null,
+                        "icon_path": null,
+                        "children": []
+                    }
+                ]
+            },
+            {
+                "id": "20f88bad-ec16-4212-8dc9-76864f834ecd",
+                "text": "<b>Ctrl+I</b>：選択中のトピックにアイコンを設定する",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "9989d3b5-498a-4454-94ed-908649879b0c",
+                "text": "<b>Ctrl+O</b>：保存したファイルを開く",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "acba8cfe-c0b9-419c-be9a-057e7842a1ff",
+                "text": "<b>Ctrl+Shift+S</b>：名前を付けてファイルに保存する",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "cb877e3c-118d-49f6-bad6-41f17ebf9b34",
+                "text": "<b>Ctrl+S</b>：ファイルに保存する",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "df088aac-a80f-4aa2-9487-1b92b433ce19",
+                "text": "<b>Ctrl+N</b>：テンプレートを開く",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            }
+        ]
+    },
+    "references": []
+}

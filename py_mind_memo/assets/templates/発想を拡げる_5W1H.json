@@ -1,0 +1,88 @@
+{
+    "root": {
+        "id": "52172145-a054-4b6e-a047-d447a39b9274",
+        "text": "5W1H",
+        "direction": null,
+        "color": null,
+        "collapsed": false,
+        "image_data": null,
+        "image_path": null,
+        "icon_data": null,
+        "icon_path": null,
+        "children": [
+            {
+                "id": "6203125d-c828-42a9-b413-2d85e0ca23e5",
+                "text": "いつ",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "49a1dcb2-7a29-491c-a9d9-a48824f595d6",
+                "text": "どこで",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "76b62ad0-68f6-4df7-9fbd-e15312e336c4",
+                "text": "誰が",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "58f21203-64fc-4661-b989-d44bf16fae23",
+                "text": "何を",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "9e8565aa-eca6-4486-baf8-ec74120fccc5",
+                "text": "なぜ",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "05e94c51-ff11-402c-9fc4-df35145b8cdb",
+                "text": "どのように",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            }
+        ]
+    },
+    "references": []
+}
