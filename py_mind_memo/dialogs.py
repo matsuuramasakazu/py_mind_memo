@@ -124,8 +124,14 @@ class TemplatePickerDialog(tk.Toplevel):
         for tmpl in self.templates:
             self.listbox.insert(tk.END, tmpl["name"])
 
-        # Double click to select
+        # Default selection and focus
+        self.listbox.selection_set(0)
+        self.listbox.focus_set()
+
+        # Keyboard and mouse bindings
         self.listbox.bind("<Double-Button-1>", lambda e: self.on_ok())
+        self.listbox.bind("<Return>", lambda e: self.on_ok())
+        self.listbox.bind("<Escape>", lambda e: self.destroy())
 
         btn_frame = tk.Frame(self, pady=10)
         btn_frame.pack(fill=tk.X)

@@ -83,7 +83,7 @@
                     },
                     {
                         "id": "2a6bcccd-2951-4f1a-867c-51383767c88f",
-                        "text": "<b>Ctri-I</b>：画像（PNG）を挿入する",
+                        "text": "<b>Ctrl+I</b>：画像（PNG）を挿入する",
                         "direction": "right",
                         "color": null,
                         "collapsed": false,
