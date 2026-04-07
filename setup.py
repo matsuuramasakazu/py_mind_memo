@@ -14,7 +14,10 @@ setup(
     },
     packages=find_packages(),
     package_data={
-        "py_mind_memo": ["assets/icons/*.png"],
+        "py_mind_memo": [
+            "assets/icons/*.png",
+            "assets/templates/*.json"
+        ],
     },
     classifiers=[
         "Programming Language :: Python :: 3",

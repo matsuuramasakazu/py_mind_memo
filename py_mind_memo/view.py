@@ -8,7 +8,7 @@ from .editor import NodeEditor
 from .drag_drop import DragDropHandler
 from .navigation import KeyboardNavigator
 from .persistence import PersistenceHandler
-from .dialogs import IconPickerDialog
+from .dialogs import IconPickerDialog, TemplatePickerDialog
 from tkinter import messagebox
 from .constants import (
     DEFAULT_LOGICAL_CENTER_X, DEFAULT_LOGICAL_CENTER_Y,
@@ -78,6 +78,7 @@ class MindMapView:
         bind_key("<Control-s>", self.persistence.on_save)
         bind_key("<Control-S>", self.persistence.on_save_as) # Ctrl+Shift+S
         bind_key("<Control-o>", self.persistence.on_open)
+        bind_key("<Control-n>", self.on_new_from_template)
         bind_key("<Up>", lambda e: self._navigate("up"))
         bind_key("<Down>", lambda e: self._navigate("down"))
         bind_key("<Left>", lambda e: self._navigate("left"))
@@ -599,6 +600,17 @@ class MindMapView:
         self.render()
         return "break"
 
+    def on_new_from_template(self, event=None):
+        if self.editor.is_editing():
+            return "break"
+            
+        dialog = TemplatePickerDialog(self.root)
+        path = dialog.show()
+        if path:
+            self.persistence.on_open_template(path)
+            
+        return "break"
+
     def on_insert_icon(self, event):
         if self.editor.is_editing():
             return
@@ -628,6 +640,7 @@ class MindMapView:
     def _create_menu(self):
         menubar = tk.Menu(self.root)
         filemenu = tk.Menu(menubar, tearoff=0)
+        filemenu.add_command(label="New from Template (Ctrl+N)", command=self.on_new_from_template)
         filemenu.add_command(label="Open (Ctrl+O)", command=self.persistence.on_open)
         filemenu.add_command(label="Save (Ctrl+S)", command=self.persistence.on_save)
         filemenu.add_command(label="Save As (Ctrl+Shift+S)", command=self.persistence.on_save_as)

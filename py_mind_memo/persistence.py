@@ -86,3 +86,15 @@ class PersistenceHandler:
                 self.render_callback(root_node=self.model.root)
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load from {file_path}: {e}")
+
+    def on_open_template(self, file_path):
+        if file_path:
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                self.model.load(data)
+                self.model.is_modified = True
+                self.current_file_path = None
+                self.render_callback(root_node=self.model.root)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load template from {file_path}: {e}")
