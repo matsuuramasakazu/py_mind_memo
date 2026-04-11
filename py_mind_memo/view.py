@@ -691,6 +691,7 @@ class MindMapView:
     def on_show_manual(self, event=None):
         """操作マニュアルをモーダルダイアログで表示する"""
         import os
+        import sys
         manual_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             "assets", "documents", "操作方法マニュアル.json"
@@ -701,7 +702,17 @@ class MindMapView:
 
         top = tk.Toplevel(self.root)
         top.title("操作マニュアル - py_mind_memo")
-        top.state("zoomed")  # 最大化表示
+        top.transient(self.root)  # メインウィンドウに紐付け
+
+        # クロスプラットフォーム対応の最大化
+        if sys.platform == "win32":
+            top.state("zoomed")
+        elif sys.platform == "darwin":
+            # macOSはzoomed相当なし; 画面サイズに合わせてウィンドウを設定
+            top.geometry(f"{top.winfo_screenwidth()}x{top.winfo_screenheight()}+0+0")
+        else:
+            # Linux (X11)
+            top.attributes("-zoomed", True)
 
         manual_view = MindMapView(top, read_only=True)
         manual_view.persistence.open_from_path(manual_path)
