@@ -19,8 +19,9 @@ class MindMapView:
     LOGICAL_CENTER_X = DEFAULT_LOGICAL_CENTER_X
     LOGICAL_CENTER_Y = DEFAULT_LOGICAL_CENTER_Y
 
-    def __init__(self, root: tk.Tk):
+    def __init__(self, root: tk.Tk, read_only: bool = False):
         self.root = root
+        self.read_only = read_only
         self.root.title("py_mind_memo - Mindmap like Tool")
         
         # 参照関係の編集状態
@@ -69,22 +70,30 @@ class MindMapView:
         def bind_key(key, handler):
             self.root.bind(key, self._wrap_handler(handler))
 
-        bind_key("<Tab>", self.on_add_child)
-        bind_key("<Return>", self.on_add_sibling)
-        bind_key("<F2>", self.on_edit_node)
-        bind_key("<Delete>", self.on_delete)
-        bind_key("<Control-r>", self.on_toggle_reference_mode)
-        bind_key("<Control-i>", self.on_insert_icon)
-        bind_key("<Control-s>", self.persistence.on_save)
-        bind_key("<Control-S>", self.persistence.on_save_as) # Ctrl+Shift+S
-        bind_key("<Control-o>", self.persistence.on_open)
-        bind_key("<Control-n>", self.on_new_from_template)
+        if not self.read_only:
+            # 編集系ショートカット（read_onlyモードでは無効）
+            bind_key("<Tab>", self.on_add_child)
+            bind_key("<Return>", self.on_add_sibling)
+            bind_key("<F2>", self.on_edit_node)
+            bind_key("<Delete>", self.on_delete)
+            bind_key("<Control-r>", self.on_toggle_reference_mode)
+            bind_key("<Control-i>", self.on_insert_icon)
+            bind_key("<Control-s>", self.persistence.on_save)
+            bind_key("<Control-S>", self.persistence.on_save_as) # Ctrl+Shift+S
+            bind_key("<Control-o>", self.persistence.on_open)
+            bind_key("<Control-n>", self.on_new_from_template)
+            bind_key("<Control-Up>", self.on_move_node_up)
+            bind_key("<Control-Down>", self.on_move_node_down)
+
+        # ナビゲーション系ショートカット（read_onlyモードでも有効）
         bind_key("<Up>", lambda e: self._navigate("up"))
         bind_key("<Down>", lambda e: self._navigate("down"))
         bind_key("<Left>", lambda e: self._navigate("left"))
         bind_key("<Right>", lambda e: self._navigate("right"))
-        bind_key("<Control-Up>", self.on_move_node_up)
-        bind_key("<Control-Down>", self.on_move_node_down)
+
+        if not self.read_only:
+            # Ctrl+M: 操作マニュアル（メインウィンドウのみ）
+            bind_key("<Control-m>", self.on_show_manual)
         
         # マウスホイール
         self.canvas.bind("<MouseWheel>", self.on_mouse_wheel)
@@ -98,8 +107,9 @@ class MindMapView:
         self.first_render = True
         self.render()
         
-        # 自動保存タイマーの開始
-        self._start_auto_save_timer()
+        # 自動保存タイマーの開始（read_onlyモードでは無効）
+        if not self.read_only:
+            self._start_auto_save_timer()
 
         # マウスイベントのバインド
         self.canvas.bind("<Button-1>", self._on_canvas_click)
@@ -121,6 +131,20 @@ class MindMapView:
 
         cx = self.canvas.canvasx(event.x)
         cy = self.canvas.canvasy(event.y)
+
+        # read_onlyモードでは参照モード操作・ドラッグ移動・参照線操作をブロックする
+        if self.read_only:
+            # 画像クリック（拡大表示）は許可
+            if self._handle_image_click(cx, cy):
+                return "break"
+            # 折りたたみ・展開は許可
+            if self._handle_node_collapse_click(cx, cy):
+                return "break"
+            # ノード選択（視覚的フィードバックのため）
+            clicked_node = self.find_node_at(cx, cy)
+            if clicked_node:
+                self._select_node(clicked_node)
+            return
 
         # 1. 参照モードの処理
         if self.reference_edit_mode:
@@ -294,6 +318,8 @@ class MindMapView:
             self.graphics.draw_reference(ref, source_node, target_node, is_selected=is_selected)
 
     def _on_motion(self, event):
+        if self.read_only:
+            return
         if self.selected_handle:
             cx = self.canvas.canvasx(event.x)
             cy = self.canvas.canvasy(event.y)
@@ -318,6 +344,8 @@ class MindMapView:
             self.drag_handler.handle_motion(event)
             
     def _on_release(self, event):
+        if self.read_only:
+            return
         if self.selected_handle:
             self.selected_handle = None
         else:
@@ -331,7 +359,9 @@ class MindMapView:
             self.graphics.draw_temporary_reference(self.reference_source_node, cx, cy)
 
     def _on_canvas_double_click(self, event):
-        """ダブルクリックで編集モードを開始"""
+        """ダブルクリックで編集モードを開始（read_onlyモードでは無効）"""
+        if self.read_only:
+            return
         cx = self.canvas.canvasx(event.x)
         cy = self.canvas.canvasy(event.y)
         clicked_node = self.find_node_at(cx, cy)
@@ -405,7 +435,7 @@ class MindMapView:
     def _on_load_complete(self, root_node):
         self._close_enlarged_image_windows()
         self.selected_node = root_node
-        self.render()
+        self.render(force_center=True)
 
     def _wrap_handler(self, func):
         """編集中は入力を無視し、かつイベントが他へ伝播しないようにする"""
@@ -638,6 +668,13 @@ class MindMapView:
         return "break"
 
     def _create_menu(self):
+        # ウィンドウの閉じるボタン（×）のハンドラ（read_onlyモードでも必要）
+        self.root.protocol("WM_DELETE_WINDOW", self.on_exit)
+
+        if self.read_only:
+            # read_onlyモードではメニューバーを表示しない
+            return
+
         menubar = tk.Menu(self.root)
         filemenu = tk.Menu(menubar, tearoff=0)
         filemenu.add_command(label="New from Template (Ctrl+N)", command=self.on_new_from_template)
@@ -645,15 +682,42 @@ class MindMapView:
         filemenu.add_command(label="Save (Ctrl+S)", command=self.persistence.on_save)
         filemenu.add_command(label="Save As (Ctrl+Shift+S)", command=self.persistence.on_save_as)
         filemenu.add_separator()
+        filemenu.add_command(label="操作マニュアル (Ctrl+M)", command=self.on_show_manual)
+        filemenu.add_separator()
         filemenu.add_command(label="Exit", command=self.on_exit)
         menubar.add_cascade(label="File", menu=filemenu)
         self.root.config(menu=menubar)
-        
-        # ウィンドウの閉じるボタン(×)のハンドラ
-        self.root.protocol("WM_DELETE_WINDOW", self.on_exit)
+
+    def on_show_manual(self, event=None):
+        """操作マニュアルをモーダルダイアログで表示する"""
+        import os
+        manual_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "assets", "documents", "操作方法マニュアル.json"
+        )
+        if not os.path.exists(manual_path):
+            messagebox.showerror("Error", f"操作マニュアルファイルが見つかりません: {manual_path}")
+            return "break"
+
+        top = tk.Toplevel(self.root)
+        top.title("操作マニュアル - py_mind_memo")
+        top.state("zoomed")  # 最大化表示
+
+        manual_view = MindMapView(top, read_only=True)
+        manual_view.persistence.open_from_path(manual_path)
+
+        top.grab_set()
+        top.focus_set()
+        return "break"
 
     def on_exit(self):
-        """アプリを終了する際の確認"""
+        """ウィンドウを閉じる。read_onlyモードでは確認なしで閉じる"""
+        if self.read_only:
+            # read_onlyモード（マニュアルウィンドウ）では確認ダイアログを表示せず、
+            # destroy()でウィンドウ自身のみを閉じる（quit()はアプリ全体を終了させるためNG）
+            self.root.destroy()
+            return
+
         if self.model.is_modified:
             response = messagebox.askyesnocancel(
                 "py_mind_memo",
