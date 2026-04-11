@@ -31,23 +31,24 @@ class TestPersistenceLogic(unittest.TestCase):
         self.handler.on_save_as()
         self.assertEqual(mock_ask.call_args.kwargs['initialfile'], "VeryLongTitleThatExc")
 
-    @patch("py_mind_memo.persistence.open", new_callable=mock_open)
-    def test_write_to_file(self, mocked_open):
+    def test_write_to_file(self):
         self.model.add_node(self.model.root, "Child")
         self.model.is_modified = True
         
         test_path = "test.json"
-        self.handler._write_to_file(test_path)
+        # _perform_write_to_file をモックして、実ファイルI/Oをスキップする
+        with patch.object(self.handler, "_perform_write_to_file") as mock_write:
+            result = self.handler._write_to_file(test_path)
         
-        mocked_open.assert_called_once_with(test_path, "w", encoding="utf-8")
+        mock_write.assert_called_once()
+        # 第1引数がtest_path、第2引数がdictであることを確認
+        args = mock_write.call_args.args
+        self.assertEqual(args[0], test_path)
+        self.assertIsInstance(args[1], dict)
         self.assertEqual(self.handler.current_file_path, test_path)
         self.assertFalse(self.model.is_modified)
-            
-        # 書き込まれた内容の検証
-        handle = mocked_open()
-        written_data = "".join(call.args[0] for call in handle.write.call_args_list)
-        data = json.loads(written_data)
-        self.assertEqual(data["root"]["text"], "Root Topic")
+        self.assertTrue(result)
+
 
     @patch("py_mind_memo.persistence.open", new_callable=mock_open, read_data='{"root": {"text": "Loaded"}}')
     def test_on_open_logic(self, mocked_open):

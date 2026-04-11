@@ -16,7 +16,8 @@ setup(
     package_data={
         "py_mind_memo": [
             "assets/icons/*.png",
-            "assets/templates/*.json"
+            "assets/templates/*.json",
+            "assets/documents/*.json",
         ],
     },
     classifiers=[

@@ -145,18 +145,6 @@
                 "children": []
             },
             {
-                "id": "6eafc9d0-dbf8-4fce-86c7-ce46a7f9ef78",
-                "text": "<b>分岐</b>を<b>クリック</b>：子トピックを閉じる",
-                "direction": "right",
-                "color": null,
-                "collapsed": false,
-                "image_data": null,
-                "image_path": null,
-                "icon_data": null,
-                "icon_path": null,
-                "children": []
-            },
-            {
                 "id": "b094eb1f-5320-4356-8ac2-978b43f6ba8c",
                 "text": "<b>↑↓←→/左クリック</b>：トピック選択を移動する",
                 "direction": "right",
@@ -171,7 +159,7 @@
             {
                 "id": "0b81616c-7836-4bd9-b10a-930378f0d6bd",
                 "text": "<b>ホイール</b>：画面の上下スクロール",
-                "direction": "left",
+                "direction": "right",
                 "color": null,
                 "collapsed": false,
                 "image_data": null,
@@ -183,6 +171,30 @@
             {
                 "id": "edabb44b-d19b-481b-9f9d-70d3c9ca16bc",
                 "text": "<b>Shift+ホイール</b>：画面の左右スクロール",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "717274ff-8419-46aa-a939-d93bd3f591f6",
+                "text": "<b>Ctrl+M</b>：操作マニュアルを表示する",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "6eafc9d0-dbf8-4fce-86c7-ce46a7f9ef78",
+                "text": "<b>分岐</b>を<b>クリック</b>：子トピックを閉じる",
                 "direction": "left",
                 "color": null,
                 "collapsed": false,
@@ -213,20 +225,19 @@
                         "image_path": null,
                         "icon_data": null,
                         "icon_path": null,
-                        "children": [
-                            {
-                                "id": "7d031094-502f-4cf6-b9d8-1462f410192f",
-                                "text": "<b>左クリック</b>：選択中のトピックを参照先にする",
-                                "direction": "left",
-                                "color": null,
-                                "collapsed": false,
-                                "image_data": null,
-                                "image_path": null,
-                                "icon_data": null,
-                                "icon_path": null,
-                                "children": []
-                            }
-                        ]
+                        "children": []
+                    },
+                    {
+                        "id": "7d031094-502f-4cf6-b9d8-1462f410192f",
+                        "text": "<b>左クリック</b>：選択中のトピックを参照先にする",
+                        "direction": "left",
+                        "color": null,
+                        "collapsed": false,
+                        "image_data": null,
+                        "image_path": null,
+                        "icon_data": null,
+                        "icon_path": null,
+                        "children": []
                     },
                     {
                         "id": "4775ffea-8f5f-4a44-a76c-e353c9a1baeb",
