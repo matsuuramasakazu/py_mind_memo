@@ -1,5 +1,6 @@
 import tkinter as tk
 import os
+import sys
 import threading
 from .models import MindMapModel, Node, Reference
 from .graphics import GraphicsEngine
@@ -690,8 +691,6 @@ class MindMapView:
 
     def on_show_manual(self, event=None):
         """操作マニュアルをモーダルダイアログで表示する"""
-        import os
-        import sys
         manual_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             "assets", "documents", "操作方法マニュアル.json"
