@@ -715,6 +715,7 @@ class MindMapView:
             top.attributes("-zoomed", True)
 
         manual_view = MindMapView(top, read_only=True)
+        top.title("操作マニュアル - py_mind_memo") # MindMapView.__init__による上書きを修正
         manual_view.persistence.open_from_path(manual_path)
 
         top.grab_set()
