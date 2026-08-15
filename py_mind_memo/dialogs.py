@@ -28,7 +28,7 @@ class IconPickerDialog(tk.Toplevel):
         else:
             row = 0
             col = 0
-            max_cols = 5
+            max_cols = 6
             
             has_icons = False
             for file in sorted(os.listdir(icons_dir)):
