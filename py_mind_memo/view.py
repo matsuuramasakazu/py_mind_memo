@@ -61,7 +61,7 @@ class MindMapView:
         self.editor = NodeEditor(self.canvas, self.root, self.graphics, self.render, self.model, history=self.history)
         self.drag_handler = DragDropHandler(
             self.canvas, self.model, self.graphics, self.layout_engine, self.render, self.find_node_at,
-            self.LOGICAL_CENTER_X, self.LOGICAL_CENTER_Y
+            self.LOGICAL_CENTER_X, self.LOGICAL_CENTER_Y, history=self.history
         )
         self.navigator = KeyboardNavigator(self.model, self.render)
         self.persistence = PersistenceHandler(self.model, self._on_load_complete, history=self.history)
