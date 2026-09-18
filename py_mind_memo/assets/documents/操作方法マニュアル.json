@@ -181,6 +181,30 @@
                 "children": []
             },
             {
+                "id": "a1c0d45b-789a-412e-9bc3-7a9128f1e001",
+                "text": "<b>Ctrl+ホイール</b>：マップのフォントサイズ変更（拡大/縮小）",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "b2d1e56c-890b-423f-acd4-8b023902f102",
+                "text": "<b>Ctrl+0</b>：フォントサイズを標準に戻す",
+                "direction": "right",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
                 "id": "717274ff-8419-46aa-a939-d93bd3f591f6",
                 "text": "<b>Ctrl+M</b>：操作マニュアルを表示する",
                 "direction": "right",
