@@ -32,7 +32,7 @@ class HistoryManager:
         self._redo_stack: List[Snapshot] = []
         # 現在の状態IDと、保存時点（Save Point）の状態ID
         self.current_state_id: str = uuid.uuid4().hex
-        self.save_point_state_id: str = self.current_state_id
+        self.save_point_state_id: Optional[str] = self.current_state_id
 
     def can_undo(self) -> bool:
         """Undo可能かどうかを返す"""
@@ -124,9 +124,11 @@ class HistoryManager:
         self.save_point_state_id = self.current_state_id
         self.model.is_modified = False
 
-    def clear(self):
+    def clear(self, is_saved: Optional[bool] = None):
         """履歴スタックを初期化する（新規作成やファイルオープン時）"""
         self._undo_stack.clear()
         self._redo_stack.clear()
         self.current_state_id = uuid.uuid4().hex
-        self.save_point_state_id = self.current_state_id
+        if is_saved is None:
+            is_saved = not getattr(self.model, "is_modified", False)
+        self.save_point_state_id = self.current_state_id if is_saved else None

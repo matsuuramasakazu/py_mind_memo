@@ -112,6 +112,7 @@ class MindMapView:
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
         
         self._is_saving = False
+        self._status_timer = None
         
         self.first_render = True
         self.render()
@@ -1021,8 +1022,19 @@ class MindMapView:
 
     def show_status_message(self, message, timeout=1000):
         """ステータスバーにメッセージを表示し、timeoutミリ秒後に消去する"""
+        if getattr(self, '_status_timer', None) is not None:
+            try:
+                self.root.after_cancel(self._status_timer)
+            except Exception:
+                pass
+            self._status_timer = None
+
         self.status_bar.config(text=message)
-        self.root.after(timeout, lambda: self.status_bar.config(text=""))
+        self._status_timer = self.root.after(timeout, self._clear_status_message)
+
+    def _clear_status_message(self):
+        self.status_bar.config(text="")
+        self._status_timer = None
 
     def _start_auto_save_timer(self):
         # 10秒 (10000ms) 後にチェックを実行
@@ -1062,4 +1074,6 @@ class MindMapView:
             # スナップショット取得時のリビジョンと現在のリビジョンが一致する場合のみ変更フラグを落とす
             if self.model.modification_count == revision:
                 self.model.is_modified = False
+                if self.history:
+                    self.history.mark_saved()
             self.show_status_message("Saved automatically", 1000)

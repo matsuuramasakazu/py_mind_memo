@@ -100,7 +100,7 @@ class PersistenceHandler:
                 self.model.load(data)
                 self.model.is_modified = True
                 if self.history:
-                    self.history.clear()
+                    self.history.clear(is_saved=False)
                 self.current_file_path = None
                 self.render_callback(root_node=self.model.root)
             except Exception as e:
