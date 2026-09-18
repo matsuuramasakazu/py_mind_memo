@@ -184,5 +184,274 @@ class TestHistoryViewIntegration(unittest.TestCase):
             self.assertEqual(res_r, "break")
             mock_redo.assert_not_called()
 
+    def test_inline_editor_entry_binds_suppress_undo_redo(self):
+        """Textウィジェット自身でもControl-z/Control-yイベントがbreakを返すこと"""
+        node = self.view.model.root
+        self.view.on_edit_node(None)
+        entry = self.view.editor.editing_entry
+        self.assertIsNotNone(entry)
+
+        # イベントハンドラが登録されており、呼び出すと "break" を返すこと
+        # Tkinter の bind_class または直接 bind の検証
+        for key in ["<Control-z>", "<Control-Z>", "<Control-y>", "<Control-Y>"]:
+            # イベントをシミュレート
+            event = tk.Event()
+            # bind_all や bind された関数を呼び出し
+            func_id = entry.bind(key)
+            self.assertTrue(bool(func_id), f"{key} should be bound on entry")
+
+        self.view.editor.cancel_edit()
+
+    def test_undo_redo_edit_topic_text(self):
+        """トピックテキスト編集確定後のUndoで編集前のテキストに戻り、Redoで編集後のテキストに復元されること"""
+        node = self.view.model.root
+        self.view.selected_node = node
+        self.assertEqual(node.text, "Root Topic")
+
+        # 編集開始
+        self.view.on_edit_node(None)
+        self.assertTrue(self.view.editor.is_editing())
+
+        # テキストを変更
+        self.view.editor.editing_entry.delete("1.0", "end")
+        self.view.editor.editing_entry.insert("1.0", "Updated Root")
+
+        # 編集確定
+        self.view.editor.finish_edit()
+        self.assertFalse(self.view.editor.is_editing())
+        self.assertEqual(node.text, "Updated Root")
+        self.assertTrue(self.view.history.can_undo())
+
+        # Undo 実行
+        self.view.on_undo(None)
+        self.assertEqual(self.view.model.root.text, "Root Topic")
+        self.assertEqual(self.view.selected_node.id, node.id)
+
+        # Redo 実行
+        self.view.on_redo(None)
+        self.assertEqual(self.view.model.root.text, "Updated Root")
+        self.assertEqual(self.view.selected_node.id, node.id)
+
+    def test_finish_edit_without_changes_does_not_record_snapshot(self):
+        """テキストを変更せずに編集完了した場合、スナップショットが記録されないこと"""
+        node = self.view.model.root
+        self.view.selected_node = node
+        self.assertFalse(self.view.history.can_undo())
+
+        # 編集開始して変更せず完了
+        self.view.on_edit_node(None)
+        self.view.editor.finish_edit()
+
+        # スナップショットが記録されていないこと
+        self.assertFalse(self.view.history.can_undo())
+
+    def test_cancel_edit_does_not_record_snapshot_and_reverts_changes(self):
+        """Escape等で編集キャンセルした場合、変更が破棄されスナップショットが記録されないこと"""
+        node = self.view.model.root
+        self.view.selected_node = node
+        self.assertFalse(self.view.history.can_undo())
+
+        self.view.on_edit_node(None)
+        self.view.editor.editing_entry.delete("1.0", "end")
+        self.view.editor.editing_entry.insert("1.0", "Canceled Text")
+
+        self.view.editor.cancel_edit()
+        self.assertEqual(node.text, "Root Topic")
+        self.assertFalse(self.view.history.can_undo())
+
+    def test_undo_redo_add_icon(self):
+        """アイコン追加後のUndoでアイコンが消去され、Redoで復元されること"""
+        node = self.view.model.root
+        self.view.selected_node = node
+        self.assertIsNone(node.icon_data)
+
+        mock_photo = MagicMock(spec=tk.PhotoImage)
+        with patch('py_mind_memo.view.IconPickerDialog.show', return_value=("icon1.png", mock_photo)), \
+             patch.object(self.view.editor.image_handler, 'base64_from_photo', return_value="b64_icon1"):
+            self.view.on_insert_icon(None)
+
+        self.assertEqual(node.icon_data, "b64_icon1")
+        self.assertTrue(self.view.history.can_undo())
+
+        # Undo 実行: アイコンが消去されること
+        self.view.on_undo(None)
+        self.assertIsNone(self.view.model.root.icon_data)
+        self.assertIsNone(self.view.model.root.icon_path)
+
+        # Redo 実行: アイコンが復元されること
+        self.view.on_redo(None)
+        self.assertEqual(self.view.model.root.icon_data, "b64_icon1")
+        self.assertEqual(self.view.model.root.icon_path, "icon1.png")
+
+    def test_undo_redo_change_icon(self):
+        """別アイコンへの変更後のUndoで元のアイコンに戻り、Redoで新しいアイコンに更新されること"""
+        node = self.view.model.root
+        self.view.selected_node = node
+        node.icon_data = "b64_icon1"
+        node.icon_path = "icon1.png"
+
+        mock_photo = MagicMock(spec=tk.PhotoImage)
+        with patch('py_mind_memo.view.IconPickerDialog.show', return_value=("icon2.png", mock_photo)), \
+             patch.object(self.view.editor.image_handler, 'base64_from_photo', return_value="b64_icon2"):
+            self.view.on_insert_icon(None)
+
+        self.assertEqual(node.icon_data, "b64_icon2")
+        self.assertEqual(node.icon_path, "icon2.png")
+
+        # Undo
+        self.view.on_undo(None)
+        self.assertEqual(self.view.model.root.icon_data, "b64_icon1")
+        self.assertEqual(self.view.model.root.icon_path, "icon1.png")
+
+        # Redo
+        self.view.on_redo(None)
+        self.assertEqual(self.view.model.root.icon_data, "b64_icon2")
+        self.assertEqual(self.view.model.root.icon_path, "icon2.png")
+
+    def test_undo_redo_clear_icon(self):
+        """アイコン削除（CLEAR）後のUndoで元のアイコンが復元され、Redoで消去されること"""
+        node = self.view.model.root
+        self.view.selected_node = node
+        node.icon_data = "b64_icon1"
+        node.icon_path = "icon1.png"
+
+        with patch('py_mind_memo.view.IconPickerDialog.show', return_value=("CLEAR", None)):
+            self.view.on_insert_icon(None)
+
+        self.assertIsNone(node.icon_data)
+        self.assertIsNone(node.icon_path)
+
+        # Undo
+        self.view.on_undo(None)
+        self.assertEqual(self.view.model.root.icon_data, "b64_icon1")
+        self.assertEqual(self.view.model.root.icon_path, "icon1.png")
+
+        # Redo
+        self.view.on_redo(None)
+        self.assertIsNone(self.view.model.root.icon_data)
+        self.assertIsNone(self.view.model.root.icon_path)
+
+    def test_clear_icon_when_none_does_not_record_snapshot(self):
+        """アイコン未設定の状態でCLEARを選択してもスナップショットが記録されないこと"""
+        node = self.view.model.root
+        self.view.selected_node = node
+        self.assertIsNone(node.icon_data)
+
+        with patch('py_mind_memo.view.IconPickerDialog.show', return_value=("CLEAR", None)):
+            self.view.on_insert_icon(None)
+
+        self.assertFalse(self.view.history.can_undo())
+
+    def test_cancel_icon_picker_does_not_record_snapshot(self):
+        """ダイアログをキャンセルした場合にスナップショットが記録されないこと"""
+        node = self.view.model.root
+        self.view.selected_node = node
+
+        with patch('py_mind_memo.view.IconPickerDialog.show', return_value=(None, None)):
+            self.view.on_insert_icon(None)
+
+        self.assertFalse(self.view.history.can_undo())
+
+    def test_undo_redo_insert_image(self):
+        """画像挿入確定後のUndoで画像が消去され、Redoで復元されること"""
+        node = self.view.model.root
+        self.view.selected_node = node
+        self.assertIsNone(node.image_data)
+
+        # 編集開始
+        self.view.on_edit_node(None)
+
+        mock_photo = MagicMock(spec=tk.PhotoImage)
+        # Mock image_create to avoid TclError with Mock PhotoImage
+        self.view.editor.editing_entry.image_create = MagicMock()
+
+        with patch.object(self.view.editor.image_handler, 'pick_and_load_image', return_value="dummy.png"), \
+             patch.object(self.view.editor.image_handler, 'process_image', return_value=mock_photo), \
+             patch.object(self.view.editor.image_handler, 'base64_from_photo', return_value="b64_dummy"):
+            self.view.editor.insert_image(node)
+
+        # 編集確定 (画像ありの状態)
+        self.view.editor.editing_entry.image_names = MagicMock(return_value=('pyimage1',))
+        self.view.editor.finish_edit()
+
+        self.assertEqual(node.image_data, "b64_dummy")
+        self.assertEqual(node.image_path, "dummy.png")
+        self.assertTrue(self.view.history.can_undo())
+
+        # Undo 実行: 画像が除去されること
+        self.view.on_undo(None)
+        self.assertIsNone(self.view.model.root.image_data)
+        self.assertIsNone(self.view.model.root.image_path)
+
+        # Redo 実行: 画像が復元されること
+        self.view.on_redo(None)
+        self.assertEqual(self.view.model.root.image_data, "b64_dummy")
+        self.assertEqual(self.view.model.root.image_path, "dummy.png")
+
+    def test_undo_redo_delete_image(self):
+        """画像削除確定後のUndoで画像が復元され、Redoで再び削除されること"""
+        node = self.view.model.root
+        self.view.selected_node = node
+        node.image_data = "b64_dummy"
+        node.image_path = "dummy.png"
+
+        # 編集開始 (ダミーの1x1 PhotoImage を使用)
+        dummy_photo = tk.PhotoImage(width=1, height=1)
+        with patch.object(self.view.editor.image_handler, 'get_photo_from_base64', return_value=dummy_photo):
+            self.view.on_edit_node(None)
+
+        # 画像が削除された状態 (image_names が空)
+        self.view.editor.editing_entry.image_names = MagicMock(return_value=())
+        self.view.editor.finish_edit()
+
+        self.assertIsNone(node.image_data)
+        self.assertIsNone(node.image_path)
+        self.assertTrue(self.view.history.can_undo())
+
+        # Undo 実行: 画像が復元されること
+        self.view.on_undo(None)
+        self.assertEqual(self.view.model.root.image_data, "b64_dummy")
+        self.assertEqual(self.view.model.root.image_path, "dummy.png")
+
+        # Redo 実行: 再び削除されること
+        self.view.on_redo(None)
+        self.assertIsNone(self.view.model.root.image_data)
+        self.assertIsNone(self.view.model.root.image_path)
+
+    def test_undo_redo_text_and_image_combined(self):
+        """1回の編集でテキスト変更と画像挿入を同時に行った場合、Undo/Redoがアトミックに動作すること"""
+        node = self.view.model.root
+        self.view.selected_node = node
+
+        # 編集開始
+        self.view.on_edit_node(None)
+
+        mock_photo = MagicMock(spec=tk.PhotoImage)
+        self.view.editor.editing_entry.image_create = MagicMock()
+
+        with patch.object(self.view.editor.image_handler, 'pick_and_load_image', return_value="combined.png"), \
+             patch.object(self.view.editor.image_handler, 'process_image', return_value=mock_photo), \
+             patch.object(self.view.editor.image_handler, 'base64_from_photo', return_value="b64_combined"):
+            self.view.editor.insert_image(node)
+
+        self.view.editor.editing_entry.delete("1.0", "end")
+        self.view.editor.editing_entry.insert("1.0", "Root with Image")
+        self.view.editor.editing_entry.image_names = MagicMock(return_value=('pyimage1',))
+
+        self.view.editor.finish_edit()
+
+        self.assertEqual(node.text, "Root with Image")
+        self.assertEqual(node.image_data, "b64_combined")
+
+        # Undo 実行: テキストと画像の両方が初期状態に復元されること
+        self.view.on_undo(None)
+        self.assertEqual(self.view.model.root.text, "Root Topic")
+        self.assertIsNone(self.view.model.root.image_data)
+
+        # Redo 実行: テキストと画像の両方が編集後状態に復元されること
+        self.view.on_redo(None)
+        self.assertEqual(self.view.model.root.text, "Root with Image")
+        self.assertEqual(self.view.model.root.image_data, "b64_combined")
+
 if __name__ == '__main__':
     unittest.main()

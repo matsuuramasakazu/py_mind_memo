@@ -73,12 +73,13 @@ class ImageHandler:
 
 class NodeEditor:
     """ノードのテキスト編集（インライン編集）を管理するクラス"""
-    def __init__(self, canvas: tk.Canvas, root: tk.Tk, graphics: GraphicsEngine, on_finish, model):
+    def __init__(self, canvas: tk.Canvas, root: tk.Tk, graphics: GraphicsEngine, on_finish, model, history=None):
         self.canvas = canvas
         self.root = root
         self.graphics = graphics
         self.on_finish = on_finish
         self.model = model
+        self.history = history
         self.editing_entry = None
         self.editing_node = None
         self.window_id = None
@@ -86,6 +87,12 @@ class NodeEditor:
         
         # 画像管理を ImageHandler に委譲
         self.image_handler = ImageHandler(root)
+
+        # 編集開始時の状態退避
+        self._initial_text = None
+        self._initial_image_data = None
+        self._initial_image_path = None
+        self._initial_is_modified = False
 
     def is_editing(self):
         return self.editing_entry is not None and self.editing_entry.winfo_exists()
@@ -96,6 +103,10 @@ class NodeEditor:
             
         self.image_handler.clear_cache()
         self.editing_node = node
+        self._initial_text = node.text
+        self._initial_image_data = node.image_data
+        self._initial_image_path = node.image_path
+        self._initial_is_modified = getattr(self.model, "is_modified", False)
 
         # Textウィジェットの作成
         lines = node.text.count("\n") + 1
@@ -208,18 +219,40 @@ class NodeEditor:
         new_text = self.editing_entry.get("1.0", "end-1c")
         
         # エディタ内に画像が残っているかチェック
-        has_image = len(self.editing_entry.image_names()) > 0
-        image_was_present = bool(target_node.image_data or target_node.image_path)
-        
-        if not has_image and image_was_present:
-            target_node.image_data = None
-            target_node.image_path = None
-            self.model.is_modified = True
-
-        if new_text is not None and new_text != target_node.text:
-            target_node.text = new_text
-            self.model.is_modified = True
+        try:
+            has_image = len(self.editing_entry.image_names()) > 0
+        except Exception:
+            has_image = bool(target_node.image_data or target_node.image_path)
             
+        final_image_data = target_node.image_data if has_image else None
+        final_image_path = target_node.image_path if has_image else None
+
+        text_changed = (new_text is not None and new_text != self._initial_text)
+        image_changed = (final_image_data != self._initial_image_data or final_image_path != self._initial_image_path)
+        content_changed = text_changed or image_changed
+
+        if content_changed:
+            # スナップショットには編集開始前の状態を記録する
+            target_node.text = self._initial_text
+            target_node.image_data = self._initial_image_data
+            target_node.image_path = self._initial_image_path
+            if self.history:
+                self.history.record_snapshot(
+                    selected_id=target_node.id,
+                    selected_type="node"
+                )
+            # 確定した新しい状態を反映
+            target_node.text = new_text if new_text is not None else self._initial_text
+            target_node.image_data = final_image_data
+            target_node.image_path = final_image_path
+            self.model.is_modified = True
+        else:
+            # 変更がなければ開始前の状態に戻す（一時的にinsert_imageされた画像データ等があれば巻き戻す）
+            target_node.text = self._initial_text
+            target_node.image_data = self._initial_image_data
+            target_node.image_path = self._initial_image_path
+            self.model.is_modified = self._initial_is_modified
+
         self._cleanup()
         self.on_finish()
         return "break"
@@ -229,6 +262,13 @@ class NodeEditor:
             return "break"
         self.finishing = True
         
+        target_node = self.editing_node
+        if target_node:
+            target_node.text = self._initial_text
+            target_node.image_data = self._initial_image_data
+            target_node.image_path = self._initial_image_path
+            self.model.is_modified = self._initial_is_modified
+
         self._cleanup()
         self.on_finish()
         return "break"
@@ -237,6 +277,9 @@ class NodeEditor:
         if self.editing_entry:
             self.editing_entry = None
         self.editing_node = None
+        self._initial_text = None
+        self._initial_image_data = None
+        self._initial_image_path = None
         if self.window_id:
             self.canvas.delete(self.window_id)
             self.window_id = None

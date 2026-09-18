@@ -58,7 +58,7 @@ class MindMapView:
         self.graphics = GraphicsEngine(self.canvas)
         self.layout_engine = LayoutEngine()
         self.selected_node: Node = self.model.root
-        self.editor = NodeEditor(self.canvas, self.root, self.graphics, self.render, self.model)
+        self.editor = NodeEditor(self.canvas, self.root, self.graphics, self.render, self.model, history=self.history)
         self.drag_handler = DragDropHandler(
             self.canvas, self.model, self.graphics, self.layout_engine, self.render, self.find_node_at,
             self.LOGICAL_CENTER_X, self.LOGICAL_CENTER_Y
@@ -758,17 +758,29 @@ class MindMapView:
         path, photo = dialog.show()
         
         if path == "CLEAR":
-            self.selected_node.icon_data = None
-            self.selected_node.icon_path = None
-            self.model.is_modified = True
-            self.render()
+            if self.selected_node.icon_data is not None or self.selected_node.icon_path is not None:
+                if self.history:
+                    self.history.record_snapshot(
+                        selected_id=self.selected_node.id,
+                        selected_type="node"
+                    )
+                self.selected_node.icon_data = None
+                self.selected_node.icon_path = None
+                self.model.is_modified = True
+                self.render()
         elif path and photo:
             try:
                 base64_data = self.editor.image_handler.base64_from_photo(photo)
-                self.selected_node.icon_data = base64_data
-                self.selected_node.icon_path = path
-                self.model.is_modified = True
-                self.render()
+                if self.selected_node.icon_data != base64_data or self.selected_node.icon_path != path:
+                    if self.history:
+                        self.history.record_snapshot(
+                            selected_id=self.selected_node.id,
+                            selected_type="node"
+                        )
+                    self.selected_node.icon_data = base64_data
+                    self.selected_node.icon_path = path
+                    self.model.is_modified = True
+                    self.render()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to insert icon: {e}")
                 
