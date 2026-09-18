@@ -2,7 +2,9 @@ import tkinter as tk
 import os
 import sys
 import threading
+from typing import Optional, Tuple
 from .models import MindMapModel, Node, Reference
+from .history import HistoryManager
 from .graphics import GraphicsEngine
 from .layout import LayoutEngine
 from .editor import NodeEditor
@@ -52,6 +54,7 @@ class MindMapView:
         self.h_scroll.config(command=self.canvas.xview)
         
         self.model = MindMapModel()
+        self.history = HistoryManager(self.model)
         self.graphics = GraphicsEngine(self.canvas)
         self.layout_engine = LayoutEngine()
         self.selected_node: Node = self.model.root
@@ -61,7 +64,7 @@ class MindMapView:
             self.LOGICAL_CENTER_X, self.LOGICAL_CENTER_Y
         )
         self.navigator = KeyboardNavigator(self.model, self.render)
-        self.persistence = PersistenceHandler(self.model, self._on_load_complete)
+        self.persistence = PersistenceHandler(self.model, self._on_load_complete, history=self.history)
         
         # メニューバーの作成
         self._create_menu()
@@ -77,6 +80,10 @@ class MindMapView:
             bind_key("<Return>", self.on_add_sibling)
             bind_key("<F2>", self.on_edit_node)
             bind_key("<Delete>", self.on_delete)
+            bind_key("<Control-z>", self.on_undo)
+            bind_key("<Control-Z>", self.on_undo)
+            bind_key("<Control-y>", self.on_redo)
+            bind_key("<Control-Y>", self.on_redo)
             bind_key("<Control-r>", self.on_toggle_reference_mode)
             bind_key("<Control-i>", self.on_insert_icon)
             bind_key("<Control-s>", self.persistence.on_save)
@@ -436,6 +443,7 @@ class MindMapView:
     def _on_load_complete(self, root_node):
         self._close_enlarged_image_windows()
         self.selected_node = root_node
+        self.history.clear()
         self.render(force_center=True)
 
     def _wrap_handler(self, func):
@@ -559,6 +567,74 @@ class MindMapView:
             for child in node.children:
                 self._draw_subtree(child)
 
+    def _get_selected_id(self) -> Optional[str]:
+        if self.selected_node:
+            return self.selected_node.id
+        elif self.selected_reference:
+            return self.selected_reference.id
+        return None
+
+    def _get_selected_type(self) -> str:
+        if self.selected_reference:
+            return "reference"
+        return "node"
+
+    def _restore_selection(self, selected_id: Optional[str], selected_type: str = "node"):
+        if selected_type == "reference" and selected_id:
+            ref = self.model.find_reference_by_id(selected_id)
+            if ref:
+                self.selected_reference = ref
+                self.selected_node = None
+                return
+        if selected_id:
+            node = self.model.find_node_by_id(selected_id)
+            if node:
+                self.selected_node = node
+                self.selected_reference = None
+                return
+        self.selected_node = self.model.root
+        self.selected_reference = None
+
+    def _ensure_selected_visible(self):
+        if self.selected_node:
+            self.ensure_node_visible(self.selected_node, force_center=True)
+        elif self.selected_reference:
+            source_node = self.model.find_node_by_id(self.selected_reference.source_id)
+            if source_node:
+                self.ensure_node_visible(source_node, force_center=True)
+
+    def on_undo(self, event=None):
+        if not self.history.can_undo():
+            self.show_status_message("これ以上元に戻せません")
+            return "break"
+
+        res = self.history.undo(
+            current_selected_id=self._get_selected_id(),
+            current_selected_type=self._get_selected_type()
+        )
+        if res:
+            selected_id, selected_type = res
+            self._restore_selection(selected_id, selected_type)
+        self.render()
+        self._ensure_selected_visible()
+        return "break"
+
+    def on_redo(self, event=None):
+        if not self.history.can_redo():
+            self.show_status_message("これ以上やり直せません")
+            return "break"
+
+        res = self.history.redo(
+            current_selected_id=self._get_selected_id(),
+            current_selected_type=self._get_selected_type()
+        )
+        if res:
+            selected_id, selected_type = res
+            self._restore_selection(selected_id, selected_type)
+        self.render()
+        self._ensure_selected_visible()
+        return "break"
+
     def on_add_child(self, event):
         if self.editor.is_editing(): return
         
@@ -566,6 +642,10 @@ class MindMapView:
         if self.selected_node.collapsed:
             self.selected_node.collapsed = False
             
+        self.history.record_snapshot(
+            selected_id=self.selected_node.id if self.selected_node else None,
+            selected_type="node"
+        )
         new_node = self.model.add_node(self.selected_node)
         self.selected_node = new_node
         self.render()
@@ -574,6 +654,10 @@ class MindMapView:
     def on_add_sibling(self, event):
         if self.editor.is_editing(): return
         if self.selected_node.parent:
+            self.history.record_snapshot(
+                selected_id=self.selected_node.id if self.selected_node else None,
+                selected_type="node"
+            )
             new_node = self.model.add_node(self.selected_node.parent)
             self.selected_node = new_node
             self.render()
@@ -589,6 +673,10 @@ class MindMapView:
         # 参照の削除が優先
         if self.selected_reference:
             if self.selected_reference in self.model.references:
+                self.history.record_snapshot(
+                    selected_id=self.selected_reference.id,
+                    selected_type="reference"
+                )
                 self.model.references.remove(self.selected_reference)
                 self.model.is_modified = True
             self.selected_reference = None
@@ -597,6 +685,10 @@ class MindMapView:
             
         if self.selected_node and self.selected_node.parent:
             parent = self.selected_node.parent
+            self.history.record_snapshot(
+                selected_id=self.selected_node.id,
+                selected_type="node"
+            )
             parent.remove_child(self.selected_node)
             # 関連する参照関係も削除
             self.model.references = [ref for ref in self.model.references 
@@ -605,18 +697,32 @@ class MindMapView:
             self.selected_node = parent
             self.render()
 
-    def _on_move_node(self, move_func):
-        if self.selected_node:
+    def _on_move_node(self, move_func, direction: int):
+        if not self.selected_node or not self.selected_node.parent:
+            return "break"
+            
+        siblings = self.selected_node.parent.children
+        try:
+            idx = siblings.index(self.selected_node)
+        except ValueError:
+            return "break"
+            
+        new_idx = idx + direction
+        if 0 <= new_idx < len(siblings):
+            self.history.record_snapshot(
+                selected_id=self.selected_node.id,
+                selected_type="node"
+            )
             if move_func(self.selected_node):
                 self.render()
                 self.ensure_node_visible(self.selected_node)
         return "break"
 
-    def on_move_node_up(self, event):
-        return self._on_move_node(self.model.move_node_up)
+    def on_move_node_up(self, event=None):
+        return self._on_move_node(self.model.move_node_up, -1)
 
-    def on_move_node_down(self, event):
-        return self._on_move_node(self.model.move_node_down)
+    def on_move_node_down(self, event=None):
+        return self._on_move_node(self.model.move_node_down, 1)
 
     def on_toggle_reference_mode(self, event):
         if self.editor.is_editing(): return

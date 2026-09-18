@@ -155,6 +155,10 @@ class NodeEditor:
             
         entry.bind("<FocusOut>", on_focus_out)
         entry.bind("<Tab>", lambda e: "break")
+        entry.bind("<Control-z>", lambda e: "break")
+        entry.bind("<Control-Z>", lambda e: "break")
+        entry.bind("<Control-y>", lambda e: "break")
+        entry.bind("<Control-Y>", lambda e: "break")
 
     def insert_image(self, node: Node):
         """画像ファイルを選択してエディタに挿入する"""
