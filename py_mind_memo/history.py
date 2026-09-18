@@ -119,10 +119,14 @@ class HistoryManager:
 
         return snapshot.selected_entity_id, snapshot.selected_entity_type
 
-    def mark_saved(self):
-        """現在の状態を保存済み（Save Point）としてマークする"""
-        self.save_point_state_id = self.current_state_id
-        self.model.is_modified = False
+    def mark_saved(self, state_id: Optional[str] = None):
+        """現在の状態または指定された状態を保存済み（Save Point）としてマークする"""
+        if state_id is not None:
+            self.save_point_state_id = state_id
+            self.model.is_modified = self.current_state_id != self.save_point_state_id
+        else:
+            self.save_point_state_id = self.current_state_id
+            self.model.is_modified = False
 
     def clear(self, is_saved: Optional[bool] = None):
         """履歴スタックを初期化する（新規作成やファイルオープン時）"""

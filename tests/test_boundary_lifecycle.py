@@ -57,8 +57,11 @@ class TestSavePointSynchronization(unittest.TestCase):
         self.assertFalse(self.model.is_modified)
 
         # 保存時点から新たな変更（分岐）を実行
-        self.history.record_snapshot(selected_id=child1.id)
-        self.model.add_node(child1, "Branch Child")
+        current_child1 = self.model.find_node_by_id(child1.id)
+        self.assertIsNotNone(current_child1)
+        self.history.record_snapshot(selected_id=current_child1.id)
+        branch_child = self.model.add_node(current_child1, "Branch Child")
+        self.assertIn(branch_child, current_child1.children)
         self.assertTrue(self.model.is_modified)
         self.assertFalse(self.history.can_redo())
 
@@ -149,6 +152,39 @@ class TestAutoSaveIntegration(unittest.TestCase):
 
         # Redo -> 自動保存時点に戻るため is_modified == False
         self.view.on_redo(None)
+        self.assertFalse(self.view.model.is_modified)
+
+    def test_auto_save_undo_race_condition_preserves_is_modified(self):
+        """自動保存実行中にUndoされた場合、保存完了時にis_modifiedがTrueのまま維持されセーブポイントが保存対象に同期されること"""
+        root_node = self.view.model.root
+        self.view.selected_node = root_node
+
+        # 変更1: 子トピック追加 (S1)
+        self.view.on_add_child(None)
+        self.view.editor.finish_edit()
+        self.assertTrue(self.view.model.is_modified)
+
+        save_state_id = self.view.history.current_state_id
+        rev = self.view.model.modification_count
+
+        # 保存処理中にユーザーがUndoを実行 -> 変更前の状態 (S0) に戻る
+        self.view.on_undo(None)
+        # Undo直後はS0に戻ったため、この時点のsave_point_state_idとの比較でis_modifiedは一時的にFalseになる
+        self.assertFalse(self.view.model.is_modified)
+        current_state_after_undo = self.view.history.current_state_id
+        self.assertNotEqual(current_state_after_undo, save_state_id)
+
+        # 非同期自動保存が成功してコールバックが完了
+        self.view._on_auto_save_complete(True, rev, save_state_id)
+
+        # ファイルに書き込まれたのは save_state_id (S1) なので、save_point_state_id は S1 となる
+        self.assertEqual(self.view.history.save_point_state_id, save_state_id)
+        # 現在の状態は S0 なので不一致となり、is_modified は True が維持される
+        self.assertTrue(self.view.model.is_modified)
+
+        # Redoして S1 に進むと、ファイルの内容と一致するため is_modified は False になる
+        self.view.on_redo(None)
+        self.assertEqual(self.view.history.current_state_id, save_state_id)
         self.assertFalse(self.view.model.is_modified)
 
 

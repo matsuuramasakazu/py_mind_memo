@@ -47,6 +47,32 @@ class TestHistoryViewIntegration(unittest.TestCase):
         self.assertEqual(len(self.view.model.root.children), 1)
         self.assertEqual(self.view.selected_node.id, child.id)
 
+    def test_undo_add_child_on_collapsed_node_restores_collapsed_state(self):
+        """折りたたまれた親ノードに子を追加後、Undoで親ノードの折りたたみ状態(collapsed=True)が復元されること"""
+        root_node = self.view.model.root
+        child1 = self.view.model.add_node(root_node, "Child 1")
+        child1.collapsed = True
+        self.view.selected_node = child1
+
+        # 子トピック追加（折りたたまれている場合は展開される）
+        self.view.on_add_child(None)
+        self.assertFalse(child1.collapsed)
+        self.assertEqual(len(child1.children), 1)
+
+        # Undo 実行 -> 子トピックが削除され、親ノードの collapsed が True に復元されること
+        self.view.on_undo(None)
+        restored_child1 = self.view.model.find_node_by_id(child1.id)
+        self.assertIsNotNone(restored_child1)
+        self.assertTrue(restored_child1.collapsed)
+        self.assertEqual(len(restored_child1.children), 0)
+
+        # Redo 実行 -> 再び展開されて子トピックが復元されること
+        self.view.on_redo(None)
+        redo_child1 = self.view.model.find_node_by_id(child1.id)
+        self.assertIsNotNone(redo_child1)
+        self.assertFalse(redo_child1.collapsed)
+        self.assertEqual(len(redo_child1.children), 1)
+
     def test_undo_redo_add_sibling(self):
         """兄弟トピック追加後のUndoで兄弟が削除され直前のトピックが選択されること"""
         child1 = self.view.model.add_node(self.view.model.root, "Child 1")

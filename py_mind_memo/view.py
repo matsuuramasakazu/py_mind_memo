@@ -708,14 +708,15 @@ class MindMapView:
     def on_add_child(self, event):
         if self.editor.is_editing(): return
         
-        # 折りたたまれている場合は展開する
-        if self.selected_node.collapsed:
-            self.selected_node.collapsed = False
-            
         self.history.record_snapshot(
             selected_id=self.selected_node.id if self.selected_node else None,
             selected_type="node"
         )
+
+        # 折りたたまれている場合は展開する
+        if self.selected_node.collapsed:
+            self.selected_node.collapsed = False
+            
         new_node = self.model.add_node(self.selected_node)
         self.selected_node = new_node
         self.render()
@@ -1049,16 +1050,17 @@ class MindMapView:
                 not self._is_saving):
                 
                 self._is_saving = True
-                # メインスレッドでデータをキャプチャ。その時点のリビジョンを取得。
+                # メインスレッドでデータをキャプチャ。その時点のリビジョンと state_id を取得。
                 data, revision = self.model.save_with_revision()
+                save_state_id = self.history.current_state_id if self.history else None
                 file_path = self.persistence.current_file_path
                 
                 def run_save():
                     try:
                         self.persistence._perform_write_to_file(file_path, data)
-                        self.root.after(0, self._on_auto_save_complete, True, revision)
+                        self.root.after(0, self._on_auto_save_complete, True, revision, save_state_id)
                     except Exception:
-                        self.root.after(0, self._on_auto_save_complete, False, revision)
+                        self.root.after(0, self._on_auto_save_complete, False, revision, save_state_id)
 
                 threading.Thread(target=run_save, daemon=True).start()
         except Exception:
@@ -1068,11 +1070,12 @@ class MindMapView:
             # 次のタイマーをセット (例外に関わらず呼び出す)
             self._start_auto_save_timer()
 
-    def _on_auto_save_complete(self, success, revision):
+    def _on_auto_save_complete(self, success, revision, save_state_id=None):
         self._is_saving = False
         if success:
-            # スナップショット取得時のリビジョンと現在のリビジョンが一致する場合のみ変更フラグを落とす
-            if self.model.modification_count == revision:
+            if self.history and save_state_id is not None:
+                self.history.mark_saved(save_state_id)
+            elif self.model.modification_count == revision:
                 self.model.is_modified = False
                 if self.history:
                     self.history.mark_saved()
