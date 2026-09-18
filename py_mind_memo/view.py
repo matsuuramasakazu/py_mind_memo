@@ -32,6 +32,7 @@ class MindMapView:
         self.reference_source_node = None
         self.selected_reference = None
         self.selected_handle = None
+        self.reference_drag_data = {}
         
         # 拡大画像ウィンドウの管理 (node.id -> tk.Toplevel)
         self.enlarged_image_windows = {}
@@ -194,9 +195,14 @@ class MindMapView:
                 exists = any(r.source_id == self.reference_source_node.id and r.target_id == clicked_node.id 
                            for r in self.model.references)
                 if not exists:
+                    self.history.record_snapshot(
+                        selected_id=self.reference_source_node.id,
+                        selected_type="node"
+                    )
                     ref = Reference(self.reference_source_node.id, clicked_node.id)
                     self.model.references.append(ref)
                     self.model.is_modified = True
+                    self._select_reference(ref)
             
             self._exit_reference_mode()
         self.render()
@@ -249,7 +255,36 @@ class MindMapView:
             self.selected_handle = clicked_handle
             if clicked_ref:
                 self.selected_reference = clicked_ref
-            self.selected_node = None
+            else:
+                try:
+                    ref_id, _ = clicked_handle.rsplit("_", 1)
+                    ref = self.model.find_reference_by_id(ref_id)
+                    if ref:
+                        self.selected_reference = ref
+                except ValueError:
+                    pass
+
+            ref = self.selected_reference
+            if ref:
+                try:
+                    ref_id, cp_type = clicked_handle.rsplit("_", 1)
+                    self.reference_drag_data = {
+                        "handle": clicked_handle,
+                        "ref_id": ref.id,
+                        "cp_type": cp_type,
+                        "initial_cp1": (ref.cp1_x, ref.cp1_y),
+                        "initial_cp2": (ref.cp2_x, ref.cp2_y),
+                        "initial_is_modified": getattr(self.model, "is_modified", False),
+                    }
+                except ValueError:
+                    self.reference_drag_data = {}
+            else:
+                self.reference_drag_data = {}
+
+            if self.selected_node is not None:
+                old_node = self.selected_node
+                self.selected_node = None
+                self.graphics.draw_node(old_node, is_selected=False)
             return True
             
         if clicked_ref:
@@ -355,6 +390,40 @@ class MindMapView:
         if self.read_only:
             return
         if self.selected_handle:
+            if hasattr(self, 'reference_drag_data') and self.reference_drag_data:
+                ref_id = self.reference_drag_data.get("ref_id")
+                ref = self.model.find_reference_by_id(ref_id)
+                if ref:
+                    initial_cp1 = self.reference_drag_data.get("initial_cp1")
+                    initial_cp2 = self.reference_drag_data.get("initial_cp2")
+                    initial_is_modified = self.reference_drag_data.get("initial_is_modified")
+
+                    new_cp1 = (ref.cp1_x, ref.cp1_y)
+                    new_cp2 = (ref.cp2_x, ref.cp2_y)
+
+                    if new_cp1 != initial_cp1 or new_cp2 != initial_cp2:
+                        # 座標が変更された場合
+                        # 一旦初期値に戻してスナップショット記録
+                        ref.cp1_x, ref.cp1_y = initial_cp1
+                        ref.cp2_x, ref.cp2_y = initial_cp2
+                        self.history.record_snapshot(
+                            selected_id=ref.id,
+                            selected_type="reference"
+                        )
+                        # 新しい値を再適用
+                        ref.cp1_x, ref.cp1_y = new_cp1
+                        ref.cp2_x, ref.cp2_y = new_cp2
+                        self.model.is_modified = True
+                    else:
+                        # 変更がなかった場合
+                        ref.cp1_x, ref.cp1_y = initial_cp1
+                        ref.cp2_x, ref.cp2_y = initial_cp2
+                        self.model.is_modified = initial_is_modified
+                        source_node = self.model.find_node_by_id(ref.source_id)
+                        target_node = self.model.find_node_by_id(ref.target_id)
+                        if source_node and target_node:
+                            self.graphics.draw_reference(ref, source_node, target_node, is_selected=True)
+                self.reference_drag_data = {}
             self.selected_handle = None
         else:
             self.drag_handler.handle_drop(event)
