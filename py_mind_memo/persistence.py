@@ -4,9 +4,10 @@ from tkinter import filedialog, messagebox
 
 class PersistenceHandler:
     """ファイルの保存・読み込みを管理するクラス"""
-    def __init__(self, model, render_callback):
+    def __init__(self, model, render_callback, history=None):
         self.model = model
         self.render_callback = render_callback
+        self.history = history
         self.current_file_path = None
 
     def on_save(self, event=None):
@@ -44,6 +45,8 @@ class PersistenceHandler:
             self._perform_write_to_file(file_path, data)
             self.current_file_path = file_path
             self.model.is_modified = False
+            if self.history:
+                self.history.mark_saved()
             return True
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save to {file_path}: {e}")
@@ -82,6 +85,8 @@ class PersistenceHandler:
                     data = json.load(f)
                 self.model.load(data)
                 self.model.is_modified = False
+                if self.history:
+                    self.history.clear()
                 self.current_file_path = file_path
                 self.render_callback(root_node=self.model.root)
             except Exception as e:
@@ -94,6 +99,8 @@ class PersistenceHandler:
                     data = json.load(f)
                 self.model.load(data)
                 self.model.is_modified = True
+                if self.history:
+                    self.history.clear(is_saved=False)
                 self.current_file_path = None
                 self.render_callback(root_node=self.model.root)
             except Exception as e:
@@ -106,6 +113,8 @@ class PersistenceHandler:
                 data = json.load(f)
             self.model.load(data)
             self.model.is_modified = False
+            if self.history:
+                self.history.clear()
             self.current_file_path = None
             self.render_callback(root_node=self.model.root)
         except Exception as e:

@@ -46,10 +46,11 @@ class TestAutoSave(unittest.TestCase):
             self.view.persistence._perform_write_to_file.assert_called_once()
             
             # メインスレッド処理の結果 (成功時) を手動で呼び出す
-            self.root.after.assert_any_call(0, self.view._on_auto_save_complete, True, current_rev)
+            save_state_id = self.view.history.current_state_id
+            self.root.after.assert_any_call(0, self.view._on_auto_save_complete, True, current_rev, save_state_id)
             
             # 完了処理を直接呼んで通知を検証
-            self.view._on_auto_save_complete(True, current_rev)
+            self.view._on_auto_save_complete(True, current_rev, save_state_id)
             self.view.status_bar.config.assert_any_call(text="Saved automatically")
 
     def test_auto_save_check_does_not_notify_on_failure(self):
@@ -70,11 +71,12 @@ class TestAutoSave(unittest.TestCase):
             self.view._auto_save_check()
             
             # 失敗時は True ではなく False で after が呼ばれる
-            self.root.after.assert_any_call(0, self.view._on_auto_save_complete, False, current_rev)
+            save_state_id = self.view.history.current_state_id
+            self.root.after.assert_any_call(0, self.view._on_auto_save_complete, False, current_rev, save_state_id)
             
             # 完了処理(失敗)を実行
             self.view.status_bar.config.reset_mock()
-            self.view._on_auto_save_complete(False, current_rev)
+            self.view._on_auto_save_complete(False, current_rev, save_state_id)
             
             # 通知（Saved automatically）が呼ばれていないこと
             for call in self.view.status_bar.config.call_args_list:

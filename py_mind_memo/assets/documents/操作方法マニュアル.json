@@ -183,7 +183,7 @@
             {
                 "id": "717274ff-8419-46aa-a939-d93bd3f591f6",
                 "text": "<b>Ctrl+M</b>：操作マニュアルを表示する",
-                "direction": "left",
+                "direction": "right",
                 "color": null,
                 "collapsed": false,
                 "image_data": null,
@@ -304,6 +304,30 @@
             {
                 "id": "df088aac-a80f-4aa2-9487-1b92b433ce19",
                 "text": "<b>Ctrl+N</b>：テンプレートを開く",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "30d16808-1530-4e17-a24a-f445e219c8ad",
+                "text": "<b>Ctrl+Y</b>：ReDo",
+                "direction": "left",
+                "color": null,
+                "collapsed": false,
+                "image_data": null,
+                "image_path": null,
+                "icon_data": null,
+                "icon_path": null,
+                "children": []
+            },
+            {
+                "id": "5dbb7b8a-54d4-4f4e-a707-a3ca2d54a5b4",
+                "text": "<b>Ctrl+Z</b>：UnDo",
                 "direction": "left",
                 "color": null,
                 "collapsed": false,

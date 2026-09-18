@@ -3,7 +3,18 @@ from .models import Node
 
 class DragDropHandler:
     """ノードのドラッグ＆ドロップ移動を管理するクラス"""
-    def __init__(self, canvas, model, graphics, layout_engine, render_callback, find_node_at, logical_center_x, logical_center_y):
+    def __init__(
+        self,
+        canvas,
+        model,
+        graphics,
+        layout_engine,
+        render_callback,
+        find_node_at,
+        logical_center_x,
+        logical_center_y,
+        history=None,
+    ):
         self.canvas = canvas
         self.model = model
         self.graphics = graphics
@@ -12,6 +23,7 @@ class DragDropHandler:
         self.find_node_at = find_node_at
         self.logical_center_x = logical_center_x
         self.logical_center_y = logical_center_y
+        self.history = history
         self.drag_data = {}
 
     def start_drag(self, event, node):
@@ -59,6 +71,11 @@ class DragDropHandler:
         
         if target_node and target_node != dropped_node and target_node != dropped_node.parent:
             if not target_node.is_descendant_of(dropped_node) and dropped_node != self.model.root:
+                if self.history:
+                    self.history.record_snapshot(
+                        selected_id=dropped_node.id,
+                        selected_type="node"
+                    )
                 dropped_node.move_to(target_node)
                 if target_node == self.model.root:
                     dropped_node.direction = self.model.get_balanced_direction(exclude_node=dropped_node)
