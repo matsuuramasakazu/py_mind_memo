@@ -142,9 +142,11 @@ class MindMapView:
         self.canvas.bind("<Motion>", self._on_hover_motion)
 
     def on_mouse_wheel(self, event):
+        """マウスホイールによる垂直スクロール処理を行う"""
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
     def on_mouse_wheel_x(self, event):
+        """Shift+マウスホイールによる水平スクロール処理を行う"""
         self.canvas.xview_scroll(int(-1*(event.delta/120)), "units")
 
     def on_font_zoom_wheel(self, event):
@@ -232,8 +234,10 @@ class MindMapView:
         root_size = self.current_font_size + (FONT_SIZE_ROOT - FONT_SIZE_NORMAL)
         self.graphics.set_font_sizes(self.current_font_size, root_size)
         if self.editor.is_editing():
+            # 編集中は入力ウィジェットのフォントのみ更新し、render()によるcreate_windowの消去を防止する
             self.editor.update_font()
-        self.render()
+        else:
+            self.render()
 
     def _on_canvas_click(self, event):
         self.canvas.focus_set()

@@ -95,9 +95,11 @@ class NodeEditor:
         self._initial_is_modified = False
 
     def is_editing(self):
+        """現在テキスト編集中かどうかを判定する"""
         return self.editing_entry is not None and self.editing_entry.winfo_exists()
 
     def start_edit(self, node: Node):
+        """指定したノードのインラインテキスト編集を開始する"""
         if self.editing_entry:
             return
             

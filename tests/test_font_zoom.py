@@ -142,12 +142,16 @@ class TestFontZoom(unittest.TestCase):
         self.view.render.assert_not_called()
 
     def test_editor_font_update_when_editing(self):
-        """編集中にフォントサイズが適用された場合、editor.update_font が呼ばれること"""
+        """編集中にフォントサイズが適用された場合、editor.update_font が呼ばれ、render() は呼ばれないこと"""
         self.view.editor = MagicMock()
         self.view.editor.is_editing.return_value = True
+        self.view.render.reset_mock()
+
         self.view.change_font_size(1)
         self.view._on_debounced_font_render()
+
         self.view.editor.update_font.assert_called_once()
+        self.view.render.assert_not_called()
 
     def test_model_not_modified_and_no_history(self):
         """フォントサイズ変更はモデルやUndo履歴（スナップショット）に影響を与えないこと"""
