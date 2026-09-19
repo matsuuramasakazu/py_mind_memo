@@ -15,7 +15,8 @@ from .dialogs import IconPickerDialog, TemplatePickerDialog
 from tkinter import messagebox
 from .constants import (
     DEFAULT_LOGICAL_CENTER_X, DEFAULT_LOGICAL_CENTER_Y,
-    CANVAS_MARGIN, COLOR_CANVAS_BG, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT
+    CANVAS_MARGIN, COLOR_CANVAS_BG, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT,
+    FONT_SIZE_NORMAL, FONT_SIZE_ROOT, FONT_SIZE_MIN, FONT_SIZE_MAX, FONT_SIZE_STEP
 )
 
 class MindMapView:
@@ -36,6 +37,10 @@ class MindMapView:
         
         # 拡大画像ウィンドウの管理 (node.id -> tk.Toplevel)
         self.enlarged_image_windows = {}
+        
+        # フォントサイズの管理（初期値: 10pt）
+        self.current_font_size = FONT_SIZE_NORMAL
+        self._font_render_timer = None
         
         # メインフレーム（CanvasとScrollbarを配置）
         self.main_frame = tk.Frame(self.root)
@@ -100,13 +105,21 @@ class MindMapView:
         bind_key("<Left>", lambda e: self._navigate("left"))
         bind_key("<Right>", lambda e: self._navigate("right"))
 
+        # フォントサイズリセット（Ctrl+0, Ctrl+テンキー0、read_onlyモードでも有効）
+        bind_key("<Control-0>", self.on_font_zoom_reset)
+        bind_key("<Control-Key-0>", self.on_font_zoom_reset)
+        bind_key("<Control-KP_0>", self.on_font_zoom_reset)
+
         if not self.read_only:
             # Ctrl+M: 操作マニュアル（メインウィンドウのみ）
             bind_key("<Control-m>", self.on_show_manual)
         
-        # マウスホイール
+        # マウスホイール（スクロールおよびフォントサイズ変更）
         self.canvas.bind("<MouseWheel>", self.on_mouse_wheel)
         self.canvas.bind("<Shift-MouseWheel>", self.on_mouse_wheel_x)
+        self.canvas.bind("<Control-MouseWheel>", self.on_font_zoom_wheel)
+        self.canvas.bind("<Control-Button-4>", self.on_font_zoom_in)
+        self.canvas.bind("<Control-Button-5>", self.on_font_zoom_out)
         # ステータスバーの追加
         self.status_bar = tk.Label(self.root, text="", bd=1, relief=tk.SUNKEN, anchor=tk.W)
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
@@ -129,10 +142,102 @@ class MindMapView:
         self.canvas.bind("<Motion>", self._on_hover_motion)
 
     def on_mouse_wheel(self, event):
+        """マウスホイールによる垂直スクロール処理を行う"""
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
     def on_mouse_wheel_x(self, event):
+        """Shift+マウスホイールによる水平スクロール処理を行う"""
         self.canvas.xview_scroll(int(-1*(event.delta/120)), "units")
+
+    def on_font_zoom_wheel(self, event):
+        """Ctrl+マウスホイールによるフォントサイズの拡大・縮小"""
+        if event.delta > 0:
+            self.change_font_size(FONT_SIZE_STEP)
+        elif event.delta < 0:
+            self.change_font_size(-FONT_SIZE_STEP)
+        return "break"
+
+    def on_font_zoom_in(self, event=None):
+        """Linux用: Ctrl+Button-4によるフォントサイズ拡大"""
+        self.change_font_size(FONT_SIZE_STEP)
+        return "break"
+
+    def on_font_zoom_out(self, event=None):
+        """Linux用: Ctrl+Button-5によるフォントサイズ縮小"""
+        self.change_font_size(-FONT_SIZE_STEP)
+        return "break"
+
+    def on_font_zoom_reset(self, event=None):
+        """Ctrl+0によるフォントサイズリセット"""
+        self.reset_font_size()
+        return "break"
+
+    def change_font_size(self, delta: int):
+        """フォントサイズを変更し、リミット範囲内であれば適用して再描画する"""
+        new_size = self.current_font_size + delta
+        if new_size < FONT_SIZE_MIN:
+            new_size = FONT_SIZE_MIN
+        elif new_size > FONT_SIZE_MAX:
+            new_size = FONT_SIZE_MAX
+
+        if new_size == self.current_font_size:
+            return
+
+        self.current_font_size = new_size
+
+        # ステータスバーは即時更新して指先の操作感にリアルタイム同期させる
+        status = f"フォントサイズ: {self.current_font_size}pt"
+        if self.current_font_size == FONT_SIZE_NORMAL:
+            status += " (初期値)"
+        self.show_status_message(status, timeout=1500)
+
+        # 連続ホイール操作中は再描画を遅延（デバウンス）し、静止後に最終フォントサイズで1回だけ描画
+        self._schedule_font_render()
+
+    def reset_font_size(self):
+        """フォントサイズを初期サイズにリセットする"""
+        if self.current_font_size == FONT_SIZE_NORMAL:
+            return
+
+        # 予約中のデバウンス描画があればキャンセルして即時実行
+        if self._font_render_timer is not None:
+            try:
+                self.root.after_cancel(self._font_render_timer)
+            except Exception:
+                pass
+            self._font_render_timer = None
+
+        self.current_font_size = FONT_SIZE_NORMAL
+        self._apply_font_size()
+
+        status = f"フォントサイズ: {self.current_font_size}pt (初期値)"
+        self.show_status_message(status, timeout=1500)
+
+    def _schedule_font_render(self, debounce_ms: int = 120):
+        """フォントサイズ変更時の描画をデバウンスして高負荷を防ぐ"""
+        if self._font_render_timer is not None:
+            try:
+                self.root.after_cancel(self._font_render_timer)
+            except Exception:
+                pass
+            self._font_render_timer = None
+
+        self._font_render_timer = self.root.after(debounce_ms, self._on_debounced_font_render)
+
+    def _on_debounced_font_render(self):
+        """デバウンスタイマー満了時に最新のフォントサイズで再描画を行う"""
+        self._font_render_timer = None
+        self._apply_font_size()
+
+    def _apply_font_size(self):
+        """現在のフォントサイズを描画エンジンに反映し、再描画を行う"""
+        root_size = self.current_font_size + (FONT_SIZE_ROOT - FONT_SIZE_NORMAL)
+        self.graphics.set_font_sizes(self.current_font_size, root_size)
+        if self.editor.is_editing():
+            # 編集中は入力ウィジェットのフォントのみ更新し、render()によるcreate_windowの消去を防止する
+            self.editor.update_font()
+        else:
+            self.render()
 
     def _on_canvas_click(self, event):
         self.canvas.focus_set()

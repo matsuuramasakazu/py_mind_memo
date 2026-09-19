@@ -95,9 +95,11 @@ class NodeEditor:
         self._initial_is_modified = False
 
     def is_editing(self):
+        """現在テキスト編集中かどうかを判定する"""
         return self.editing_entry is not None and self.editing_entry.winfo_exists()
 
     def start_edit(self, node: Node):
+        """指定したノードのインラインテキスト編集を開始する"""
         if self.editing_entry:
             return
             
@@ -115,7 +117,8 @@ class NodeEditor:
         if node.image_data:
             height += EDIT_IMAGE_HEIGHT_BONUS
 
-        entry = tk.Text(self.canvas, font=self.graphics.font, 
+        font = self.graphics.root_font if node.parent is None else self.graphics.font
+        entry = tk.Text(self.canvas, font=font, 
                          bg="white", fg="black", insertbackground="black",
                          relief="flat", highlightbackground="#0078d7", highlightthickness=2,
                          padx=5, pady=5)
@@ -285,3 +288,9 @@ class NodeEditor:
             self.window_id = None
         self.image_handler.clear_cache()
         self.canvas.focus_set()
+
+    def update_font(self):
+        """編集中であればテキストウィジェットのフォントを更新する"""
+        if self.editing_entry and self.editing_node:
+            font = self.graphics.root_font if self.editing_node.parent is None else self.graphics.font
+            self.editing_entry.config(font=font)

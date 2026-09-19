@@ -45,6 +45,19 @@ class GraphicsEngine:
         
         self.branch_colors = BRANCH_COLORS
         self._font_cache = {}
+        self._char_width_cache = {}
+
+    def set_font_sizes(self, normal_size: int, root_size: int):
+        """通常ノードおよびルートノードのフォントサイズを設定する"""
+        self.font = (FONT_FAMILY, normal_size)
+        self.root_font = (FONT_FAMILY, root_size, "bold")
+
+    def _measure_char(self, font_obj, char: str) -> int:
+        """文字の幅をキャッシュを利用して計測する"""
+        key = (id(font_obj), char)
+        if key not in self._char_width_cache:
+            self._char_width_cache[key] = font_obj.measure(char)
+        return self._char_width_cache[key]
 
     def _get_font(self, family, size, style):
         """キャッシュを利用してフォントオブジェクトを取得または作成する"""
@@ -149,7 +162,7 @@ class GraphicsEngine:
                 # より高度にするなら単語単位が良いが、まずは確実な文字単位
                 pending_txt = ""
                 for char in txt:
-                    char_w = font_obj.measure(char)
+                    char_w = self._measure_char(font_obj, char)
                     if current_line_width + char_w > max_width and current_line_segments or (current_line_width + char_w > max_width and pending_txt):
                         # 現在の行を確定
                         if pending_txt:
