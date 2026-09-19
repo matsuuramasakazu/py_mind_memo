@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="py_mind_memo",
-    version="0.9.0",
+    version="0.10.0",
     author="matsuuramasakazu",
     author_email="matsuuramasakazu@outlook.jp",
     description="A lightweight and intuitive mindmap like tool built with tkinter.",
